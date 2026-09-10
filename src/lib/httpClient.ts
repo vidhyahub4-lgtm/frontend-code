@@ -3,10 +3,15 @@ import { ApiError, type ApiErrorResponse } from "../types/api.types";
 import { getStoredToken } from "./tokenStorage";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+type BodyType = "json" | "form";
 
 interface RequestOptions {
   method?: HttpMethod;
   body?: unknown;
+  /** "json" (default) sends body as JSON. "form" sends it as
+   *  application/x-www-form-urlencoded — some backend endpoints
+   *  (state/city, class/section) expect this instead of JSON. */
+  bodyType?: BodyType;
   headers?: Record<string, string>;
   /** Attach the stored access token as a Bearer header. Defaults to true. */
   auth?: boolean;
@@ -15,6 +20,16 @@ interface RequestOptions {
 }
 
 const DEFAULT_TIMEOUT_MS = 15_000;
+
+function encodeFormBody(body: unknown): string {
+  const params = new URLSearchParams();
+  Object.entries(body as Record<string, unknown>).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      params.append(key, String(value));
+    }
+  });
+  return params.toString();
+}
 
 /**
  * Single entry point for every HTTP call in the app.
@@ -30,6 +45,7 @@ export async function apiRequest<TResponse>(
   const {
     method = "GET",
     body,
+    bodyType = "json",
     headers = {},
     auth = true,
     timeoutMs = DEFAULT_TIMEOUT_MS,
@@ -39,8 +55,15 @@ export async function apiRequest<TResponse>(
   const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
 
   const requestHeaders: Record<string, string> = {
-    "Content-Type": "application/json",
     Accept: "application/json",
+    ...(body !== undefined
+      ? {
+          "Content-Type":
+            bodyType === "form"
+              ? "application/x-www-form-urlencoded"
+              : "application/json",
+        }
+      : {}),
     ...headers,
   };
 
@@ -57,7 +80,12 @@ export async function apiRequest<TResponse>(
     response = await fetch(`${env.apiBaseUrl}${path}`, {
       method,
       headers: requestHeaders,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body:
+        body !== undefined
+          ? bodyType === "form"
+            ? encodeFormBody(body)
+            : JSON.stringify(body)
+          : undefined,
       signal: controller.signal,
     });
   } catch (error) {
