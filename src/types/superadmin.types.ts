@@ -37,3 +37,87 @@ export interface GetInstituteTypesResponse {
   message: string;
   instituteTypes: InstituteType[];
 }
+
+export interface State {
+  _id: string;
+  stateName: string;
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateStateRequest {
+  stateName: string;
+}
+
+export interface GetStatesResponse {
+  success: boolean;
+  message: string;
+  states: State[];
+}
+
+export interface City {
+  _id: string;
+  cityName: string;
+  stateId: string;
+  pinCode: string;
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateCityRequest {
+  cityName: string;
+  stateId: string;
+  pinCode: string;
+}
+
+export interface GetCitiesResponse {
+  success: boolean;
+  message: string;
+  cities: City[];
+}
+
+export interface SchoolClass {
+  _id: string;
+  className: string;
+  classInWord: string;
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateClassRequest {
+  className: string;
+  classInWord: string;
+}
+
+export interface GetClassesResponse {
+  success: boolean;
+  message: string;
+  classes: SchoolClass[];
+}
+
+export interface Section {
+  _id: string;
+  sectionName: string;
+  classId: string;
+  Maxlimit: string;
+  to?: string;
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateSectionRequest {
+  sectionName: string;
+  classId: string;
+  Maxlimit: string;
+  to?: string;
+}
+
+export interface GetSectionsResponse {
+  success: boolean;
+  message: string;
+  sections: Section[];
+}
