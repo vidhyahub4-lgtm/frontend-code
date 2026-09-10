@@ -15,6 +15,18 @@ export interface ApiEnvelope<T> {
   data: T;
 }
 
+/**
+ * Minimal shape for endpoints where we only care that the call
+ * succeeded (message to show, maybe some fields we don't need to
+ * read) — the list is re-fetched from its GET endpoint afterwards
+ * rather than relying on the create response's exact shape.
+ */
+export interface ApiAckResponse {
+  success: boolean;
+  message: string;
+  [key: string]: unknown;
+}
+
 export interface ApiErrorResponse {
   success: false;
   message: string;

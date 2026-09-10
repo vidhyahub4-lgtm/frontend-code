@@ -1,38 +1,35 @@
 import { apiRequest } from "../lib/httpClient";
-import type { ApiEnvelope } from "../types/api.types";
+import type { ApiAckResponse } from "../types/api.types";
 import type {
-  Board,
   CreateBoardRequest,
   CreateInstituteTypeRequest,
-  InstituteType,
+  GetBoardsResponse,
+  GetInstituteTypesResponse,
 } from "../types/superadmin.types";
 
 export const superAdminService = {
   createBoard(payload: CreateBoardRequest) {
-    return apiRequest<ApiEnvelope<Board>>("/super-admin/create-board", {
+    return apiRequest<ApiAckResponse>("/super-admin/create-board", {
       method: "POST",
       body: payload,
     });
   },
 
   getBoards() {
-    return apiRequest<ApiEnvelope<Board[]>>("/super-admin/get-board", {
+    return apiRequest<GetBoardsResponse>("/super-admin/get-board", {
       method: "GET",
     });
   },
 
   createInstituteType(payload: CreateInstituteTypeRequest) {
-    return apiRequest<ApiEnvelope<InstituteType>>(
-      "/super-admin/create-institute-type",
-      {
-        method: "POST",
-        body: payload,
-      }
-    );
+    return apiRequest<ApiAckResponse>("/super-admin/create-institute-type", {
+      method: "POST",
+      body: payload,
+    });
   },
 
   getInstituteTypes() {
-    return apiRequest<ApiEnvelope<InstituteType[]>>(
+    return apiRequest<GetInstituteTypesResponse>(
       "/super-admin/get-institute-type",
       { method: "GET" }
     );

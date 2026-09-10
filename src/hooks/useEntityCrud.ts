@@ -3,7 +3,7 @@ import { ApiError } from "../types/api.types";
 
 interface UseEntityCrudOptions<T, TCreate> {
   fetchList: () => Promise<T[]>;
-  create: (payload: TCreate) => Promise<T>;
+  create: (payload: TCreate) => Promise<unknown>;
 }
 
 interface UseEntityCrudResult<T, TCreate> {

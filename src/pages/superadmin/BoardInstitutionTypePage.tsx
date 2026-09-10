@@ -18,9 +18,8 @@ const labelClasses = "text-sm font-medium text-ink-soft";
 function BoardSection() {
   const { items, isLoading, loadError, isCreating, createError, createEntity } =
     useEntityCrud<Board, { board: string; startMonth: string }>({
-      fetchList: () => superAdminService.getBoards().then((res) => res.data ?? []),
-      create: (payload) =>
-        superAdminService.createBoard(payload).then((res) => res.data),
+      fetchList: () => superAdminService.getBoards().then((res) => res.boards ?? []),
+      create: (payload) => superAdminService.createBoard(payload),
     });
 
   const [board, setBoard] = useState("");
@@ -91,7 +90,7 @@ function BoardSection() {
           emptyLabel="No boards added yet."
           getRowKey={(item) => item._id}
           columns={[
-            { header: "Board", render: (item) => <span className="font-medium">{item.board}</span> },
+            { header: "Board", render: (item) => <span className="font-medium">{item.boardName}</span> },
             { header: "Start Month", render: (item) => item.startMonth },
           ]}
         />
@@ -104,9 +103,8 @@ function InstituteTypeSection() {
   const { items, isLoading, loadError, isCreating, createError, createEntity } =
     useEntityCrud<InstituteType, { instituteType: string }>({
       fetchList: () =>
-        superAdminService.getInstituteTypes().then((res) => res.data ?? []),
-      create: (payload) =>
-        superAdminService.createInstituteType(payload).then((res) => res.data),
+        superAdminService.getInstituteTypes().then((res) => res.instituteTypes ?? []),
+      create: (payload) => superAdminService.createInstituteType(payload),
     });
 
   const [instituteType, setInstituteType] = useState("");
