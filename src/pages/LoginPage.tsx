@@ -1,5 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { authService } from "../services/auth.service";
+import { ApiError } from "../types/api.types";
 
 interface FormErrors {
   username?: string;
@@ -9,12 +12,14 @@ interface FormErrors {
 
 function LoginPage() {
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
+  const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -42,18 +47,32 @@ function LoginPage() {
     return Object.keys(nextErrors).length === 0;
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setFormError(null);
 
     if (!validate()) return;
 
     setIsSubmitting(true);
 
-    // No backend yet — simulate a successful login and move to the dashboard.
-    window.setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      const response = await authService.login({
+        loginUserName: username.trim(),
+        email: email.trim(),
+        password,
+      });
+
+      login(response);
       navigate("/dashboard");
-    }, 500);
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : "Something went wrong. Please try again.";
+      setFormError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -168,6 +187,15 @@ function LoginPage() {
                 Forgot password?
               </a>
             </div>
+
+            {formError && (
+              <p
+                role="alert"
+                className="rounded-md bg-red-50 px-3.5 py-2.5 text-sm text-red-600"
+              >
+                {formError}
+              </p>
+            )}
 
             <button
               type="submit"
