@@ -1,6 +1,7 @@
 import { X } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { SidebarNavItem } from "./SidebarNavItem";
+import { sortTopLevelItems } from "../../lib/sidebarPaths";
 
 interface SidebarProps {
   isMobileOpen: boolean;
@@ -19,13 +20,14 @@ function ChalkMarkIcon() {
 
 function SidebarContent({ onNavigate }: { onNavigate: () => void }) {
   const { sidebar } = useAuth();
+  const orderedSidebar = sortTopLevelItems(sidebar);
 
   return (
     <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-      {sidebar.length === 0 ? (
+      {orderedSidebar.length === 0 ? (
         <p className="px-3 text-sm text-chalk/50">No menu items available.</p>
       ) : (
-        sidebar.map((item) => (
+        orderedSidebar.map((item) => (
           <SidebarNavItem key={item.link} item={item} depth={0} onNavigate={onNavigate} />
         ))
       )}
