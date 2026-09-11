@@ -59,8 +59,8 @@ export interface GetStatesResponse {
 export interface City {
   _id: string;
   cityName: string;
-  stateId: string;
-  pinCode: string;
+  pinCode: number;
+  stateId: { _id: string };
   createdBy?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -101,8 +101,8 @@ export interface GetClassesResponse {
 export interface Section {
   _id: string;
   sectionName: string;
-  classId: string;
-  Maxlimit: string;
+  classId: { _id: string; className: string };
+  Maxlimit: number;
   to?: string;
   createdBy?: string;
   createdAt?: string;

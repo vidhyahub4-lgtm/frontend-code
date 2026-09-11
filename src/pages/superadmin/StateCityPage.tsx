@@ -185,7 +185,7 @@ function CitySection({ states }: { states: State[] }) {
           getRowKey={(item) => item._id}
           columns={[
             { header: "City", render: (item) => <span className="font-medium">{item.cityName}</span> },
-            { header: "State", render: (item) => stateNameById.get(item.stateId) ?? "—" },
+            { header: "State", render: (item) => stateNameById.get(item.stateId._id) ?? "—" },
             { header: "Pin Code", render: (item) => item.pinCode },
           ]}
         />

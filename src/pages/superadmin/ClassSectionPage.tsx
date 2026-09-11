@@ -205,7 +205,10 @@ function SectionSection({ classes }: { classes: SchoolClass[] }) {
           getRowKey={(item) => item._id}
           columns={[
             { header: "Section", render: (item) => <span className="font-medium">{item.sectionName}</span> },
-            { header: "Class", render: (item) => classNameById.get(item.classId) ?? "—" },
+            {
+              header: "Class",
+              render: (item) => item.classId?.className ?? classNameById.get(item.classId?._id) ?? "—",
+            },
             { header: "Max Limit", render: (item) => item.Maxlimit },
           ]}
         />
