@@ -5,6 +5,7 @@ import { ComingSoonPage } from "./pages/ComingSoonPage";
 import BoardInstitutionTypePage from "./pages/superadmin/BoardInstitutionTypePage";
 import StateCityPage from "./pages/superadmin/StateCityPage";
 import ClassSectionPage from "./pages/superadmin/ClassSectionPage";
+import ManageUserPage from "./pages/superadmin/ManageUserPage";
 import { AuthProvider } from "./context/AuthContext";
 import { ProtectedRoute } from "./routes/ProtectedRoute";
 import { AppLayout } from "./components/layout/AppLayout";
@@ -32,6 +33,7 @@ function App() {
             />
             <Route path="/superadmin/state-city" element={<StateCityPage />} />
             <Route path="/superadmin/class-section" element={<ClassSectionPage />} />
+            <Route path="/superadmin/manage-user" element={<ManageUserPage />} />
             {/* Sidebar links whose pages aren't built yet land here */}
             <Route path="*" element={<ComingSoonPage />} />
           </Route>
