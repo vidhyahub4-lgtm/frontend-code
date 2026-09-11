@@ -121,3 +121,52 @@ export interface GetSectionsResponse {
   message: string;
   sections: Section[];
 }
+
+export interface SchoolAdmin {
+  _id: string;
+  firstname: string;
+  lastname: string;
+  loginUserName: string;
+  email: string;
+}
+
+export interface School {
+  _id: string;
+  schName: string;
+  schAdd: string;
+  schInfo?: string;
+  city: string;
+  state: string;
+  schoolCode: string;
+  websiteUrl?: string;
+  contact1: string;
+  contact2?: string;
+  email: string;
+  admin: SchoolAdmin;
+  selectBoard: string;
+  instituteType: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateInstituteProfileRequest {
+  schName: string;
+  schAdd: string;
+  schInfo?: string;
+  city: string;
+  state: string;
+  schoolCode: string;
+  websiteUrl?: string;
+  contact1: string;
+  contact2?: string;
+  email: string;
+  admin: string;
+  selectBoard: string;
+  instituteType: string;
+}
+
+export interface GetInstituteProfilesResponse {
+  success: boolean;
+  message: string;
+  schools: School[];
+}

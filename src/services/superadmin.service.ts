@@ -4,12 +4,14 @@ import type {
   CreateBoardRequest,
   CreateCityRequest,
   CreateClassRequest,
+  CreateInstituteProfileRequest,
   CreateInstituteTypeRequest,
   CreateSectionRequest,
   CreateStateRequest,
   GetBoardsResponse,
   GetCitiesResponse,
   GetClassesResponse,
+  GetInstituteProfilesResponse,
   GetInstituteTypesResponse,
   GetSectionsResponse,
   GetStatesResponse,
@@ -96,5 +98,19 @@ export const superAdminService = {
     return apiRequest<GetSectionsResponse>("/super-admin/get-section", {
       method: "GET",
     });
+  },
+
+  // ---- Institution Profile ----
+  createInstituteProfile(payload: CreateInstituteProfileRequest) {
+    return apiRequest<ApiAckResponse>(
+      "/super-admin/create-institute-profile",
+      { method: "POST", body: payload }
+    );
+  },
+  getInstituteProfiles() {
+    return apiRequest<GetInstituteProfilesResponse>(
+      "/super-admin/get-institute-profile",
+      { method: "GET" }
+    );
   },
 };
