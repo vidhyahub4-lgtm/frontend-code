@@ -187,3 +187,45 @@ export interface CheckSchoolCodeResponse {
   available: boolean;
   code: string;
 }
+
+// ---- School Setting: Class/Section Setup (maps a global Class+Section to a School) ----
+
+export interface SchClassRef {
+  _id: string;
+  className: string;
+  classInWord: string;
+}
+
+export interface SchSectionRef {
+  _id: string;
+  sectionName: string;
+  Maxlimit: number;
+}
+
+export interface SchSchoolRef {
+  _id: string;
+  schName: string;
+  schoolCode: string;
+}
+
+export interface SchClass {
+  _id: string;
+  classID: SchClassRef;
+  sectionID: SchSectionRef;
+  schCode: string;
+  schoolID: SchSchoolRef;
+  createdBy?: string;
+}
+
+export interface CreateSchClassRequest {
+  schoolID: string;
+  schCode: string;
+  sectionID: string;
+  classID: string;
+}
+
+export interface GetSchClassesResponse {
+  success: boolean;
+  message: string;
+  schClasses: SchClass[];
+}
