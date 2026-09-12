@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { Landmark, Plus } from "lucide-react";
+import { Landmark, Plus, RefreshCw } from "lucide-react";
 import { SectionCard } from "../../components/common/SectionCard";
 import { EntityTable } from "../../components/common/EntityTable";
 import { useEntityCrud } from "../../hooks/useEntityCrud";
+import { useSchoolCode } from "../../hooks/useSchoolCode";
 import { superAdminService } from "../../services/superadmin.service";
 import { userService } from "../../services/user.service";
 import { ApiError } from "../../types/api.types";
@@ -26,7 +27,6 @@ const EMPTY_FORM = {
   schInfo: "",
   stateId: "",
   cityId: "",
-  schoolCode: "",
   websiteUrl: "",
   contact1: "",
   contact2: "",
@@ -86,6 +86,7 @@ function useReferenceData() {
 
 function InstitutionProfilePage() {
   const refs = useReferenceData();
+  const schoolCode = useSchoolCode();
   const { items, isLoading, loadError, isCreating, createError, createEntity } =
     useEntityCrud<School, CreateSchoolRequest>({
       fetchList: () => superAdminService.getSchools().then((res) => res.schools ?? []),
@@ -120,7 +121,7 @@ function InstitutionProfilePage() {
       form.schAdd.trim() &&
       form.stateId &&
       form.cityId &&
-      form.schoolCode.trim() &&
+      schoolCode.code &&
       form.contact1.trim() &&
       form.schemail.trim() &&
       form.admin &&
@@ -138,7 +139,7 @@ function InstitutionProfilePage() {
       schInfo: form.schInfo.trim() || undefined,
       cityId: form.cityId,
       stateId: form.stateId,
-      schoolCode: form.schoolCode.trim(),
+      schoolCode: schoolCode.code,
       websiteUrl: form.websiteUrl.trim() || undefined,
       contact1: form.contact1.trim(),
       contact2: form.contact2.trim() || undefined,
@@ -148,7 +149,10 @@ function InstitutionProfilePage() {
       instituteType: form.instituteType,
     });
 
-    if (ok) setForm(EMPTY_FORM);
+    if (ok) {
+      setForm(EMPTY_FORM);
+      schoolCode.regenerate();
+    }
   }
 
   return (
@@ -178,14 +182,28 @@ function InstitutionProfilePage() {
               />
             </div>
             <div className="space-y-1">
-              <label htmlFor="schoolCode" className={labelClasses}>School code</label>
-              <input
-                id="schoolCode"
-                value={form.schoolCode}
-                onChange={(e) => updateField("schoolCode", e.target.value)}
-                placeholder="DEMO001"
-                className={inputClasses}
-              />
+              <label htmlFor="schoolCode" className={labelClasses}>School code (auto-generated)</label>
+              <div className="flex items-center gap-2">
+                <input
+                  id="schoolCode"
+                  value={schoolCode.isGenerating ? "Generating…" : schoolCode.code}
+                  readOnly
+                  className={`${inputClasses} cursor-not-allowed bg-chalk/60 font-mono tracking-wide text-ink-soft`}
+                />
+                <button
+                  type="button"
+                  onClick={schoolCode.regenerate}
+                  disabled={schoolCode.isGenerating}
+                  title="Generate a new code"
+                  aria-label="Generate a new code"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-line bg-white text-ink-soft transition hover:bg-chalk disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <RefreshCw size={15} className={schoolCode.isGenerating ? "animate-spin" : ""} />
+                </button>
+              </div>
+              {schoolCode.error && (
+                <p role="alert" className="text-xs text-red-600">{schoolCode.error}</p>
+              )}
             </div>
           </div>
 

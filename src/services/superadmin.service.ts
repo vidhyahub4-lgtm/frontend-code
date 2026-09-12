@@ -8,6 +8,7 @@ import type {
   CreateSchoolRequest,
   CreateSectionRequest,
   CreateStateRequest,
+  CheckSchoolCodeResponse,
   GetBoardsResponse,
   GetCitiesResponse,
   GetClassesResponse,
@@ -111,5 +112,12 @@ export const superAdminService = {
     return apiRequest<GetSchoolsResponse>("/super-admin/get-school", {
       method: "GET",
     });
+  },
+
+  checkSchoolCode(code: string) {
+    return apiRequest<CheckSchoolCodeResponse>(
+      "/super-admin/check-school-code",
+      { method: "POST", body: { code } }
+    );
   },
 };

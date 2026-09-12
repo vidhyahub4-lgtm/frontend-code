@@ -180,3 +180,10 @@ export interface GetSchoolsResponse {
   message: string;
   schools: School[];
 }
+
+export interface CheckSchoolCodeResponse {
+  success: boolean;
+  message: string;
+  available: boolean;
+  code: string;
+}
