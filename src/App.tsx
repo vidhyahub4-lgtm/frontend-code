@@ -9,6 +9,8 @@ import ManageUserPage from "./pages/superadmin/ManageUserPage";
 import InstitutionProfilePage from "./pages/superadmin/InstitutionProfilePage";
 import ClassSectionSetupPage from "./pages/schoolsetting/ClassSectionSetupPage";
 import ClassPayModeSetupPage from "./pages/superadmin/ClassPayModeSetupPage";
+import FeeHeadSetupPage from "./pages/superadmin/FeeHeadSetupPage";
+import LateFineSetupPage from "./pages/superadmin/LateFineSetupPage";
 import { AuthProvider } from "./context/AuthContext";
 import { ProtectedRoute } from "./routes/ProtectedRoute";
 import { AppLayout } from "./components/layout/AppLayout";
@@ -43,6 +45,14 @@ function App() {
               element={<ClassSectionSetupPage />}
             />
             <Route path="/superadmin/fee-setting" element={<ClassPayModeSetupPage />} />
+            <Route
+              path="/superadmin/fee-setting/fee-head-setup"
+              element={<FeeHeadSetupPage />}
+            />
+            <Route
+              path="/superadmin/fee-setting/late-fine-setup"
+              element={<LateFineSetupPage />}
+            />
             {/* Sidebar links whose pages aren't built yet land here */}
             <Route path="*" element={<ComingSoonPage />} />
           </Route>
