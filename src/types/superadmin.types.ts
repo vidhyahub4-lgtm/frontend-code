@@ -229,3 +229,51 @@ export interface GetSchClassesResponse {
   message: string;
   schClasses: SchClass[];
 }
+
+// ---- Super Admin: Fee Setting -> Class PayMode Setup ----
+
+export interface PayModeInstallment {
+  id: number;
+  installment: string;
+  _id?: string;
+}
+
+export interface PayModeFeeStructureEntry {
+  class: SchClassRef;
+  duration: string;
+  payModeDuration: string;
+  installment: PayModeInstallment[];
+  _id?: string;
+}
+
+export interface SchoolPayModeSetup {
+  _id: string;
+  schId: SchSchoolRef;
+  schCode: string;
+  session: string;
+  feeStructure: PayModeFeeStructureEntry[];
+  createdAt?: string;
+}
+
+/** Payload shape for creating a fresh school+session pay mode setup.
+ * `class` here is the raw id (not populated) since this is what the
+ * backend expects on write. */
+export interface CreatePayModeFeeStructureEntry {
+  class: string;
+  duration: string;
+  payModeDuration: string;
+  installment: { id: number; installment: string }[];
+}
+
+export interface CreateSchoolPayModeRequest {
+  schId: string;
+  schCode: string;
+  session: string;
+  feeStructure: CreatePayModeFeeStructureEntry[];
+}
+
+export interface GetSchoolPayModeResponse {
+  success: boolean;
+  message: string;
+  feeStructure: SchoolPayModeSetup[];
+}

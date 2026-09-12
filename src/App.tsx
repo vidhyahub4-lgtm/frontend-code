@@ -8,6 +8,7 @@ import ClassSectionPage from "./pages/superadmin/ClassSectionPage";
 import ManageUserPage from "./pages/superadmin/ManageUserPage";
 import InstitutionProfilePage from "./pages/superadmin/InstitutionProfilePage";
 import ClassSectionSetupPage from "./pages/schoolsetting/ClassSectionSetupPage";
+import ClassPayModeSetupPage from "./pages/superadmin/ClassPayModeSetupPage";
 import { AuthProvider } from "./context/AuthContext";
 import { ProtectedRoute } from "./routes/ProtectedRoute";
 import { AppLayout } from "./components/layout/AppLayout";
@@ -41,6 +42,7 @@ function App() {
               path="/school-setting/essential-setting/class-section-setup"
               element={<ClassSectionSetupPage />}
             />
+            <Route path="/superadmin/fee-setting" element={<ClassPayModeSetupPage />} />
             {/* Sidebar links whose pages aren't built yet land here */}
             <Route path="*" element={<ComingSoonPage />} />
           </Route>
