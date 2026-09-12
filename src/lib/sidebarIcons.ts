@@ -7,6 +7,7 @@ import {
   File,
   FileText,
   Folder,
+  FolderOpen,
   Gift,
   GraduationCap,
   Hash,
@@ -80,9 +81,11 @@ const ICON_BY_TEXT: Record<string, LucideIcon> = {
 export function resolveSidebarIcon(
   iconKey: string | undefined,
   text: string,
-  hasChildren: boolean
+  hasChildren: boolean,
+  isOpen: boolean = false
 ): LucideIcon {
   if (iconKey && ICON_BY_KEY[iconKey]) return ICON_BY_KEY[iconKey];
   if (ICON_BY_TEXT[text]) return ICON_BY_TEXT[text];
-  return hasChildren ? Folder : Circle;
+  if (hasChildren) return isOpen ? FolderOpen : Folder;
+  return Circle;
 }

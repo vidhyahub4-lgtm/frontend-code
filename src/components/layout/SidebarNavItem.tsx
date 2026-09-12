@@ -25,8 +25,8 @@ export function SidebarNavItem({ item, depth, onNavigate }: SidebarNavItemProps)
     if (containsActive) setOpen(true);
   }, [containsActive]);
 
-  const Icon = resolveSidebarIcon(item.icon, item.text, hasChildren);
-  const paddingLeft = 12 + depth * 16;
+  const Icon = resolveSidebarIcon(item.icon, item.text, hasChildren, open);
+  const paddingLeft = 12 + depth * 20;
 
   const baseRowClasses =
     "flex w-full items-center gap-2.5 rounded-md py-2 pr-3 text-[13.5px] font-medium transition-colors";
@@ -77,7 +77,14 @@ export function SidebarNavItem({ item, depth, onNavigate }: SidebarNavItemProps)
           open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
         }`}
       >
-        <div className="min-h-0 space-y-0.5 pt-0.5">
+        {/* Vertical guide line under the parent's icon, spanning the full
+            height of its children — makes the folder/file nesting readable
+            at a glance instead of relying on indent alone. */}
+        <div className="relative min-h-0 space-y-0.5 pt-0.5">
+          <div
+            className="pointer-events-none absolute top-0 bottom-1 w-px bg-white/10"
+            style={{ left: paddingLeft + 7 }}
+          />
           {item.children!.map((child) => (
             <SidebarNavItem
               key={child.link}
