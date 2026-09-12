@@ -44,7 +44,15 @@ function App() {
               path="/school-setting/essential-setting/class-section-setup"
               element={<ClassSectionSetupPage />}
             />
+            {/* "/superadmin/fee-setting" kept for backward compatibility —
+                the sidebar's Class PayMode Setup child now points at the
+                more specific path below to avoid prefix-matching the other
+                Fee Setting children as active. */}
             <Route path="/superadmin/fee-setting" element={<ClassPayModeSetupPage />} />
+            <Route
+              path="/superadmin/fee-setting/class-paymode-setup"
+              element={<ClassPayModeSetupPage />}
+            />
             <Route
               path="/superadmin/fee-setting/fee-head-setup"
               element={<FeeHeadSetupPage />}
