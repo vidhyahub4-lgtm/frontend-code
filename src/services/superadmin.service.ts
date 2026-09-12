@@ -4,15 +4,15 @@ import type {
   CreateBoardRequest,
   CreateCityRequest,
   CreateClassRequest,
-  CreateInstituteProfileRequest,
   CreateInstituteTypeRequest,
+  CreateSchoolRequest,
   CreateSectionRequest,
   CreateStateRequest,
   GetBoardsResponse,
   GetCitiesResponse,
   GetClassesResponse,
-  GetInstituteProfilesResponse,
   GetInstituteTypesResponse,
+  GetSchoolsResponse,
   GetSectionsResponse,
   GetStatesResponse,
 } from "../types/superadmin.types";
@@ -100,17 +100,16 @@ export const superAdminService = {
     });
   },
 
-  // ---- Institution Profile ----
-  createInstituteProfile(payload: CreateInstituteProfileRequest) {
-    return apiRequest<ApiAckResponse>(
-      "/super-admin/create-institute-profile",
-      { method: "POST", body: payload }
-    );
+  // ---- Institution Profile (backend: /school) ----
+  createSchool(payload: CreateSchoolRequest) {
+    return apiRequest<ApiAckResponse>("/super-admin/create-school", {
+      method: "POST",
+      body: payload,
+    });
   },
-  getInstituteProfiles() {
-    return apiRequest<GetInstituteProfilesResponse>(
-      "/super-admin/get-institute-profile",
-      { method: "GET" }
-    );
+  getSchools() {
+    return apiRequest<GetSchoolsResponse>("/super-admin/get-school", {
+      method: "GET",
+    });
   },
 };

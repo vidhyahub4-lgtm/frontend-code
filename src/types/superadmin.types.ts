@@ -122,12 +122,19 @@ export interface GetSectionsResponse {
   sections: Section[];
 }
 
-export interface SchoolAdmin {
+export interface SchoolCityRef {
   _id: string;
-  firstname: string;
-  lastname: string;
-  loginUserName: string;
-  email: string;
+  cityName: string;
+}
+
+export interface SchoolStateRef {
+  _id: string;
+  stateName: string;
+}
+
+export interface SchoolBoardRef {
+  _id: string;
+  boardName: string;
 }
 
 export interface School {
@@ -135,37 +142,40 @@ export interface School {
   schName: string;
   schAdd: string;
   schInfo?: string;
-  city: string;
-  state: string;
+  cityId: SchoolCityRef;
+  stateId: SchoolStateRef;
   schoolCode: string;
   websiteUrl?: string;
   contact1: string;
   contact2?: string;
-  email: string;
-  admin: SchoolAdmin;
-  selectBoard: string;
+  schemail: string;
+  /** Not populated by the backend — just the user's id. */
+  admin: string;
+  selectBoard: SchoolBoardRef;
   instituteType: string;
+  schLogo?: string;
+  createdBy?: string;
   createdAt?: string;
   updatedAt?: string;
 }
 
-export interface CreateInstituteProfileRequest {
+export interface CreateSchoolRequest {
   schName: string;
   schAdd: string;
   schInfo?: string;
-  city: string;
-  state: string;
+  cityId: string;
+  stateId: string;
   schoolCode: string;
   websiteUrl?: string;
   contact1: string;
   contact2?: string;
-  email: string;
+  schemail: string;
   admin: string;
   selectBoard: string;
   instituteType: string;
 }
 
-export interface GetInstituteProfilesResponse {
+export interface GetSchoolsResponse {
   success: boolean;
   message: string;
   schools: School[];

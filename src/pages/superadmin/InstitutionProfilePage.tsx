@@ -9,7 +9,7 @@ import { ApiError } from "../../types/api.types";
 import type {
   Board,
   City,
-  CreateInstituteProfileRequest,
+  CreateSchoolRequest,
   InstituteType,
   School,
   State,
@@ -30,7 +30,7 @@ const EMPTY_FORM = {
   websiteUrl: "",
   contact1: "",
   contact2: "",
-  email: "",
+  schemail: "",
   admin: "",
   selectBoard: "",
   instituteType: "",
@@ -87,10 +87,9 @@ function useReferenceData() {
 function InstitutionProfilePage() {
   const refs = useReferenceData();
   const { items, isLoading, loadError, isCreating, createError, createEntity } =
-    useEntityCrud<School, CreateInstituteProfileRequest>({
-      fetchList: () =>
-        superAdminService.getInstituteProfiles().then((res) => res.schools ?? []),
-      create: (payload) => superAdminService.createInstituteProfile(payload),
+    useEntityCrud<School, CreateSchoolRequest>({
+      fetchList: () => superAdminService.getSchools().then((res) => res.schools ?? []),
+      create: (payload) => superAdminService.createSchool(payload),
     });
 
   const [form, setForm] = useState(EMPTY_FORM);
@@ -110,6 +109,12 @@ function InstitutionProfilePage() {
     [refs.cities, form.stateId]
   );
 
+  const adminNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    refs.users.forEach((u) => map.set(u._id, `${u.firstname} ${u.lastname}`));
+    return map;
+  }, [refs.users]);
+
   const canSubmit = Boolean(
     form.schName.trim() &&
       form.schAdd.trim() &&
@@ -117,7 +122,7 @@ function InstitutionProfilePage() {
       form.cityId &&
       form.schoolCode.trim() &&
       form.contact1.trim() &&
-      form.email.trim() &&
+      form.schemail.trim() &&
       form.admin &&
       form.selectBoard &&
       form.instituteType
@@ -127,21 +132,17 @@ function InstitutionProfilePage() {
     event.preventDefault();
     if (!canSubmit) return;
 
-    const state = refs.states.find((s) => s._id === form.stateId);
-    const city = refs.cities.find((c) => c._id === form.cityId);
-    if (!state || !city) return;
-
     const ok = await createEntity({
       schName: form.schName.trim(),
       schAdd: form.schAdd.trim(),
       schInfo: form.schInfo.trim() || undefined,
-      city: city.cityName,
-      state: state.stateName,
+      cityId: form.cityId,
+      stateId: form.stateId,
       schoolCode: form.schoolCode.trim(),
       websiteUrl: form.websiteUrl.trim() || undefined,
       contact1: form.contact1.trim(),
       contact2: form.contact2.trim() || undefined,
-      email: form.email.trim(),
+      schemail: form.schemail.trim(),
       admin: form.admin,
       selectBoard: form.selectBoard,
       instituteType: form.instituteType,
@@ -257,7 +258,7 @@ function InstitutionProfilePage() {
               >
                 <option value="">Select a board</option>
                 {refs.boards.map((b) => (
-                  <option key={b._id} value={b.boardName}>{b.boardName}</option>
+                  <option key={b._id} value={b._id}>{b.boardName}</option>
                 ))}
               </select>
             </div>
@@ -323,12 +324,12 @@ function InstitutionProfilePage() {
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
-              <label htmlFor="email" className={labelClasses}>Email</label>
+              <label htmlFor="schemail" className={labelClasses}>School email</label>
               <input
-                id="email"
+                id="schemail"
                 type="email"
-                value={form.email}
-                onChange={(e) => updateField("email", e.target.value)}
+                value={form.schemail}
+                onChange={(e) => updateField("schemail", e.target.value)}
                 placeholder="info@demoschool.com"
                 className={inputClasses}
               />
@@ -372,12 +373,15 @@ function InstitutionProfilePage() {
           columns={[
             { header: "School", render: (item) => <span className="font-medium">{item.schName}</span> },
             { header: "Code", render: (item) => item.schoolCode },
-            { header: "Location", render: (item) => `${item.city}, ${item.state}` },
-            { header: "Board", render: (item) => item.selectBoard },
+            {
+              header: "Location",
+              render: (item) => `${item.cityId?.cityName ?? "—"}, ${item.stateId?.stateName ?? "—"}`,
+            },
+            { header: "Board", render: (item) => item.selectBoard?.boardName ?? "—" },
             { header: "Type", render: (item) => item.instituteType },
             {
               header: "Admin",
-              render: (item) => `${item.admin.firstname} ${item.admin.lastname}`,
+              render: (item) => adminNameById.get(item.admin) ?? "—",
             },
           ]}
         />
