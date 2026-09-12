@@ -11,6 +11,7 @@ import type {
   SchClass,
   SchoolPayModeSetup,
   PayModeInstallment,
+  PayModeFeeStructureEntry,
   CreatePayModeFeeStructureEntry,
 } from "../../types/superadmin.types";
 
@@ -89,6 +90,104 @@ function InstallmentModal({
   );
 }
 
+function EditEntryModal({
+  setupId,
+  entry,
+  onClose,
+  onSaved,
+}: {
+  setupId: string;
+  entry: PayModeFeeStructureEntry;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [duration, setDuration] = useState(entry.duration);
+  const [payModeDuration, setPayModeDuration] = useState(entry.payModeDuration);
+  const [installmentCount, setInstallmentCount] = useState(entry.installment.length);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSave() {
+    setIsSaving(true);
+    setError(null);
+    try {
+      await superAdminService.updateFeeStructureEntry({
+        setupId,
+        entryId: entry._id ?? "",
+        duration,
+        payModeDuration,
+        installment: buildInstallments(installmentCount),
+      });
+      onSaved();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not save. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-chalkboard/50 p-4">
+      <div className="w-full max-w-sm rounded-lg bg-white shadow-lg">
+        <div className="flex items-center justify-between border-b border-line bg-marigold/10 px-5 py-3">
+          <h3 className="font-display text-base text-ink">
+            Edit ({entry.class.classInWord})
+          </h3>
+          <button onClick={onClose} className="text-ink-soft hover:text-ink">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="space-y-3 p-4">
+          <div className="space-y-1">
+            <label className={labelClasses}>Duration</label>
+            <select value={duration} onChange={(e) => setDuration(e.target.value)} className={inputClasses}>
+              {DURATION_OPTIONS.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className={labelClasses}>PayMode Duration</label>
+            <select
+              value={payModeDuration}
+              onChange={(e) => setPayModeDuration(e.target.value)}
+              className={inputClasses}
+            >
+              {PAYMODE_DURATION_OPTIONS.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className={labelClasses}>Installments</label>
+            <input
+              type="number"
+              min={0}
+              max={12}
+              value={installmentCount}
+              onChange={(e) => setInstallmentCount(Number(e.target.value))}
+              className={inputClasses}
+            />
+          </div>
+          {error && (
+            <p role="alert" className="rounded-md bg-red-50 px-3.5 py-2 text-sm text-red-600">
+              {error}
+            </p>
+          )}
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="w-full rounded-md bg-marigold px-4 py-2 text-sm font-medium text-chalkboard transition hover:bg-marigold-dark disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isSaving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 function ClassPayModeSetupPage() {
   const { items: schools, isLoading: schoolsLoading } = useEntityCrud<
     School,
@@ -114,6 +213,7 @@ function ClassPayModeSetupPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const [modal, setModal] = useState<{ classLabel: string; installments: PayModeInstallment[] } | null>(null);
+  const [editEntry, setEditEntry] = useState<{ setupId: string; entry: PayModeFeeStructureEntry } | null>(null);
 
   const loadSetups = useCallback((forSchoolID: string) => {
     if (!forSchoolID) {
@@ -247,18 +347,26 @@ function ClassPayModeSetupPage() {
                     render: (item) => (
                       <div className="flex flex-wrap gap-1.5">
                         {item.feeStructure.map((fs) => (
-                          <button
-                            key={fs._id}
-                            onClick={() =>
-                              setModal({
-                                classLabel: `${fs.class.classInWord} (${fs.class.className})`,
-                                installments: fs.installment,
-                              })
-                            }
-                            className="rounded-md border border-line px-2.5 py-1 text-xs text-ink-soft hover:border-marigold hover:text-marigold-dark"
-                          >
-                            {fs.class.className} · {fs.payModeDuration}
-                          </button>
+                          <span key={fs._id} className="flex items-center gap-1">
+                            <button
+                              onClick={() =>
+                                setModal({
+                                  classLabel: `${fs.class.classInWord} (${fs.class.className})`,
+                                  installments: fs.installment,
+                                })
+                              }
+                              className="rounded-md border border-line px-2.5 py-1 text-xs text-ink-soft hover:border-marigold hover:text-marigold-dark"
+                            >
+                              {fs.class.className} · {fs.payModeDuration}
+                            </button>
+                            <button
+                              onClick={() => setEditEntry({ setupId: item._id, entry: fs })}
+                              className="rounded-md border border-line px-2 py-1 text-xs text-ink-soft hover:border-marigold hover:text-marigold-dark"
+                              title="Edit"
+                            >
+                              ✎
+                            </button>
+                          </span>
                         ))}
                       </div>
                     ),
@@ -394,6 +502,18 @@ function ClassPayModeSetupPage() {
           classLabel={modal.classLabel}
           installments={modal.installments}
           onClose={() => setModal(null)}
+        />
+      )}
+
+      {editEntry && (
+        <EditEntryModal
+          setupId={editEntry.setupId}
+          entry={editEntry.entry}
+          onClose={() => setEditEntry(null)}
+          onSaved={() => {
+            setEditEntry(null);
+            loadSetups(schoolID);
+          }}
         />
       )}
     </div>

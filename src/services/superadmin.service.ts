@@ -16,6 +16,7 @@ import type {
   GetInstituteTypesResponse,
   GetSchoolsResponse,
   GetSchoolPayModeResponse,
+  UpdateFeeStructureEntryRequest,
   GetSectionsResponse,
   GetStatesResponse,
 } from "../types/superadmin.types";
@@ -139,5 +140,11 @@ export const superAdminService = {
       `/super-admin/get-school-pay-mode${query ? `?${query}` : ""}`,
       { method: "GET" }
     );
+  },
+  updateFeeStructureEntry(payload: UpdateFeeStructureEntryRequest) {
+    return apiRequest<ApiAckResponse>("/super-admin/update-fee-structure-entry", {
+      method: "PUT",
+      body: payload,
+    });
   },
 };

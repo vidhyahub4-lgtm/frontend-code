@@ -277,3 +277,11 @@ export interface GetSchoolPayModeResponse {
   message: string;
   feeStructure: SchoolPayModeSetup[];
 }
+
+export interface UpdateFeeStructureEntryRequest {
+  setupId: string;
+  entryId: string;
+  duration?: string;
+  payModeDuration?: string;
+  installment?: { id: number; installment: string }[];
+}
