@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Wallet, Plus, X } from "lucide-react";
 import { SectionCard } from "../../components/common/SectionCard";
-import { EntityTable } from "../../components/common/EntityTable";
 import { useEntityCrud } from "../../hooks/useEntityCrud";
 import { superAdminService } from "../../services/superadmin.service";
 import { schoolSettingService } from "../../services/schoolSetting.service";
@@ -90,16 +89,20 @@ function InstallmentModal({
   );
 }
 
-function EditEntryModal({
+/** One row inside an already-configured session's table — editable inline,
+ * matching the reference ERP layout (no popup for Duration/PayMode/Installments). */
+function SetupEntryRow({
   setupId,
   entry,
-  onClose,
+  slNo,
   onSaved,
+  onViewInstallments,
 }: {
   setupId: string;
   entry: PayModeFeeStructureEntry;
-  onClose: () => void;
+  slNo: number;
   onSaved: () => void;
+  onViewInstallments: () => void;
 }) {
   const [duration, setDuration] = useState(entry.duration);
   const [payModeDuration, setPayModeDuration] = useState(entry.payModeDuration);
@@ -107,7 +110,7 @@ function EditEntryModal({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleSave() {
+  async function handleUpdate() {
     setIsSaving(true);
     setError(null);
     try {
@@ -120,70 +123,67 @@ function EditEntryModal({
       });
       onSaved();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not save. Please try again.");
+      setError(err instanceof ApiError ? err.message : "Could not update. Please try again.");
     } finally {
       setIsSaving(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-chalkboard/50 p-4">
-      <div className="w-full max-w-sm rounded-lg bg-white shadow-lg">
-        <div className="flex items-center justify-between border-b border-line bg-marigold/10 px-5 py-3">
-          <h3 className="font-display text-base text-ink">
-            Edit ({entry.class.classInWord})
-          </h3>
-          <button onClick={onClose} className="text-ink-soft hover:text-ink">
-            <X size={18} />
-          </button>
-        </div>
-        <div className="space-y-3 p-4">
-          <div className="space-y-1">
-            <label className={labelClasses}>Duration</label>
-            <select value={duration} onChange={(e) => setDuration(e.target.value)} className={inputClasses}>
-              {DURATION_OPTIONS.map((d) => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <label className={labelClasses}>PayMode Duration</label>
-            <select
-              value={payModeDuration}
-              onChange={(e) => setPayModeDuration(e.target.value)}
-              className={inputClasses}
-            >
-              {PAYMODE_DURATION_OPTIONS.map((d) => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <label className={labelClasses}>Installments</label>
-            <input
-              type="number"
-              min={0}
-              max={12}
-              value={installmentCount}
-              onChange={(e) => setInstallmentCount(Number(e.target.value))}
-              className={inputClasses}
-            />
-          </div>
-          {error && (
-            <p role="alert" className="rounded-md bg-red-50 px-3.5 py-2 text-sm text-red-600">
-              {error}
-            </p>
-          )}
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="w-full rounded-md bg-marigold px-4 py-2 text-sm font-medium text-chalkboard transition hover:bg-marigold-dark disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isSaving ? "Saving…" : "Save"}
-          </button>
-        </div>
-      </div>
-    </div>
+    <tr>
+      <td className="py-2.5 pr-4">{slNo}</td>
+      <td className="py-2.5 pr-4 font-medium">{entry.class.classInWord} ({entry.class.className})</td>
+      <td className="py-2.5 pr-4">
+        <select value={duration} onChange={(e) => setDuration(e.target.value)} className={inputClasses}>
+          {DURATION_OPTIONS.map((d) => (
+            <option key={d} value={d}>{d}</option>
+          ))}
+        </select>
+      </td>
+      <td className="py-2.5 pr-4">
+        <select
+          value={payModeDuration}
+          onChange={(e) => setPayModeDuration(e.target.value)}
+          className={inputClasses}
+        >
+          {PAYMODE_DURATION_OPTIONS.map((d) => (
+            <option key={d} value={d}>{d}</option>
+          ))}
+        </select>
+      </td>
+      <td className="py-2.5 pr-4">
+        <input
+          type="number"
+          min={0}
+          max={12}
+          value={installmentCount}
+          onChange={(e) => setInstallmentCount(Number(e.target.value))}
+          className={`${inputClasses} w-20`}
+        />
+      </td>
+      <td className="py-2.5 pr-4">
+        <button
+          onClick={handleUpdate}
+          disabled={isSaving}
+          className="rounded-md bg-marigold px-3 py-1.5 text-xs font-medium text-chalkboard transition hover:bg-marigold-dark disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isSaving ? "Updating…" : "Update"}
+        </button>
+      </td>
+      <td className="py-2.5 pr-4">
+        <button
+          onClick={onViewInstallments}
+          className="rounded-md border border-line px-3 py-1.5 text-xs text-ink-soft hover:border-marigold hover:text-marigold-dark"
+        >
+          View Installment
+        </button>
+      </td>
+      {error && (
+        <td className="py-2.5 pr-4 text-xs text-red-600" colSpan={2}>
+          {error}
+        </td>
+      )}
+    </tr>
   );
 }
 
@@ -221,7 +221,6 @@ function ClassPayModeSetupPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const [modal, setModal] = useState<{ classLabel: string; installments: PayModeInstallment[] } | null>(null);
-  const [editEntry, setEditEntry] = useState<{ setupId: string; entry: PayModeFeeStructureEntry } | null>(null);
 
   const loadSetups = useCallback((forSchoolID: string) => {
     if (!forSchoolID) {
@@ -341,46 +340,55 @@ function ClassPayModeSetupPage() {
             {/* Already-configured sessions for this school */}
             <div className="mt-5 border-t border-line pt-4">
               <h3 className="mb-2 text-sm font-medium text-ink">Configured Sessions</h3>
-              <EntityTable<SchoolPayModeSetup>
-                items={setups}
-                isLoading={setupsLoading}
-                error={setupsError}
-                emptyLabel="No pay mode setup yet for this school."
-                getRowKey={(item) => item._id}
-                columns={[
-                  { header: "Session", render: (item) => <span className="font-medium">{item.session}</span> },
-                  { header: "Classes", render: (item) => item.feeStructure.length },
-                  {
-                    header: "Details",
-                    render: (item) => (
-                      <div className="flex flex-wrap gap-1.5">
-                        {item.feeStructure.map((fs) => (
-                          <span key={fs._id} className="flex items-center gap-1">
-                            <button
-                              onClick={() =>
-                                setModal({
-                                  classLabel: `${fs.class.classInWord} (${fs.class.className})`,
-                                  installments: fs.installment,
-                                })
-                              }
-                              className="rounded-md border border-line px-2.5 py-1 text-xs text-ink-soft hover:border-marigold hover:text-marigold-dark"
-                            >
-                              {fs.class.className} · {fs.payModeDuration}
-                            </button>
-                            <button
-                              onClick={() => setEditEntry({ setupId: item._id, entry: fs })}
-                              className="rounded-md border border-line px-2 py-1 text-xs text-ink-soft hover:border-marigold hover:text-marigold-dark"
-                              title="Edit"
-                            >
-                              ✎
-                            </button>
-                          </span>
-                        ))}
+              {setupsLoading ? (
+                <p className="text-sm text-ink-soft">Loading…</p>
+              ) : setupsError ? (
+                <p className="text-sm text-red-600">{setupsError}</p>
+              ) : setups.length === 0 ? (
+                <p className="text-sm text-ink-soft">No pay mode setup yet for this school.</p>
+              ) : (
+                <div className="space-y-6">
+                  {setups.map((setup) => (
+                    <div key={setup._id} className="rounded-md border border-line">
+                      <div className="border-b border-line bg-marigold/10 px-4 py-2">
+                        <span className="text-sm font-medium text-ink">Session: {setup.session}</span>
                       </div>
-                    ),
-                  },
-                ]}
-              />
+                      <div className="overflow-x-auto p-3">
+                        <table className="w-full text-left text-sm">
+                          <thead>
+                            <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-soft">
+                              <th className="py-2 pr-4 font-medium">SlNo</th>
+                              <th className="py-2 pr-4 font-medium">Class</th>
+                              <th className="py-2 pr-4 font-medium">Duration</th>
+                              <th className="py-2 pr-4 font-medium">PayMode Duration</th>
+                              <th className="py-2 pr-4 font-medium">Installments</th>
+                              <th className="py-2 pr-4 font-medium">Update</th>
+                              <th className="py-2 pr-4 font-medium">View</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-line">
+                            {setup.feeStructure.map((fs, idx) => (
+                              <SetupEntryRow
+                                key={fs._id ?? idx}
+                                setupId={setup._id}
+                                entry={fs}
+                                slNo={idx + 1}
+                                onSaved={() => loadSetups(schoolID)}
+                                onViewInstallments={() =>
+                                  setModal({
+                                    classLabel: `${fs.class.classInWord} (${fs.class.className})`,
+                                    installments: fs.installment,
+                                  })
+                                }
+                              />
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* New session builder */}
@@ -523,18 +531,6 @@ function ClassPayModeSetupPage() {
           classLabel={modal.classLabel}
           installments={modal.installments}
           onClose={() => setModal(null)}
-        />
-      )}
-
-      {editEntry && (
-        <EditEntryModal
-          setupId={editEntry.setupId}
-          entry={editEntry.entry}
-          onClose={() => setEditEntry(null)}
-          onSaved={() => {
-            setEditEntry(null);
-            loadSetups(schoolID);
-          }}
         />
       )}
     </div>
