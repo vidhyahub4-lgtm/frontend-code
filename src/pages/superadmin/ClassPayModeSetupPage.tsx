@@ -244,8 +244,9 @@ function ClassPayModeSetupPage() {
   }, [schoolID, loadSetups]);
 
   function startNewSession() {
-    if (!schoolID) return;
+    if (!schoolID || !session) return;
     setSchClassesLoading(true);
+    setSaveError(null);
     schoolSettingService
       .getSchClasses(schoolID)
       .then((res) => {
@@ -264,8 +265,29 @@ function ClassPayModeSetupPage() {
           }
         });
 
+        // If this session already has a setup for this school, only
+        // offer classes that aren't in it yet — matches what the backend
+        // will actually accept (it upserts new classes into the existing
+        // session instead of erroring on the whole request).
+        const existingSetup = setups.find((s) => s.session === session);
+        const alreadyConfiguredClassIds = new Set(
+          existingSetup?.feeStructure.map((fs) => fs.class._id) ?? []
+        );
+
+        const availableClasses = Array.from(uniqueByClassId.values()).filter(
+          (c) => !alreadyConfiguredClassIds.has(c.classID._id)
+        );
+
+        if (existingSetup && availableClasses.length === 0) {
+          setSaveError(
+            "All classes assigned to this school already have a fee structure for this session."
+          );
+          setDraftRows([]);
+          return;
+        }
+
         setDraftRows(
-          Array.from(uniqueByClassId.values()).map((c) => ({
+          availableClasses.map((c) => ({
             classID: c.classID._id,
             className: `${c.classID.classInWord} (${c.classID.className})`,
             duration: DURATION_OPTIONS[0],
