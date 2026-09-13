@@ -1,85 +1,45 @@
-import { useMemo, useState, type FormEvent } from "react";
-import { ListChecks, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { useState, type FormEvent } from "react";
+import { ListChecks, Plus } from "lucide-react";
 import { SectionCard } from "../../components/common/SectionCard";
 import { EntityTable } from "../../components/common/EntityTable";
+import { useEntityCrud } from "../../hooks/useEntityCrud";
+import { superAdminService } from "../../services/superadmin.service";
+import { FEE_HEAD_TYPES } from "../../types/superadmin.types";
+import type { FeeHeadSetup, FeeHeadType, Session } from "../../types/superadmin.types";
 
 const inputClasses =
   "w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-marigold/40";
 const labelClasses = "text-sm font-medium text-ink-soft";
 
-/**
- * UI-only for now (backend not built yet — see handoff notes).
- * "Head Type" and "Fee Head" are expected to come from master-data
- * endpoints once the backend adds them (mirrors the reference product's
- * separate "Head Master" screen). These are placeholder option lists so
- * the UI can be reviewed; swap for a real fetch once the backend/master
- * data shape is confirmed.
- */
-const HEAD_TYPE_OPTIONS = ["General", "Optional", "Transport", "Hostel"];
-const FEE_HEAD_OPTIONS = [
-  "Tuition Fee",
-  "Admission Fee",
-  "Transport Fee",
-  "Library Fee",
-  "Exam Fee",
-  "Late Fine",
-];
-
-interface FeeHeadRow {
-  id: string;
-  headType: string;
-  headName: string;
-  session: string;
-  dayScholar: boolean;
-  boarder: boolean;
-}
-
 function FeeHeadSetupPage() {
-  const [headType, setHeadType] = useState("");
+  const { items: sessions, isLoading: sessionsLoading } = useEntityCrud<Session, never>({
+    fetchList: () => superAdminService.getSessions().then((res) => res.sessions ?? []),
+    create: () => Promise.resolve(),
+  });
+
+  const {
+    items: feeHeads,
+    isLoading,
+    loadError,
+    isCreating,
+    createError,
+    createEntity,
+  } = useEntityCrud<FeeHeadSetup, { headtype: FeeHeadType; session: string; feehead: string }>({
+    fetchList: () => superAdminService.getFeeHeadSetups().then((res) => res.feeHeads ?? []),
+    create: (payload) => superAdminService.createFeeHeadSetup(payload),
+  });
+
+  const [headtype, setHeadtype] = useState<FeeHeadType | "">("");
   const [session, setSession] = useState("");
-  const [dayScholar, setDayScholar] = useState(true);
-  const [boarder, setBoarder] = useState(true);
-  const [feeHead, setFeeHead] = useState("");
-  const [rows, setRows] = useState<FeeHeadRow[]>([]);
-  const [copyFromSession, setCopyFromSession] = useState("");
+  const [feehead, setFeehead] = useState("");
 
-  // Sessions already used in the table (other than the one currently
-  // selected) — powers the "Get From Other Session" copy action.
-  const pastSessions = useMemo(
-    () => Array.from(new Set(rows.map((r) => r.session))).filter((s) => s !== session.trim()),
-    [rows, session]
-  );
+  const canAdd = Boolean(headtype && session && feehead.trim());
 
-  const canAdd = Boolean(headType && session.trim() && feeHead && (dayScholar || boarder));
-
-  function handleAdd(event: FormEvent<HTMLFormElement>) {
+  async function handleAdd(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!canAdd) return;
-
-    setRows((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
-        headType,
-        headName: feeHead,
-        session: session.trim(),
-        dayScholar,
-        boarder,
-      },
-    ]);
-    setFeeHead("");
-  }
-
-  function handleGetFromOtherSession() {
-    if (!copyFromSession || !session.trim()) return;
-    const copied = rows
-      .filter((r) => r.session === copyFromSession)
-      .map((r) => ({ ...r, id: crypto.randomUUID(), session: session.trim() }));
-    setRows((prev) => [...prev, ...copied]);
-  }
-
-  function handleDelete(id: string) {
-    setRows((prev) => prev.filter((r) => r.id !== id));
+    if (!headtype || !session || !feehead.trim()) return;
+    const ok = await createEntity({ headtype, session, feehead: feehead.trim() });
+    if (ok) setFeehead("");
   }
 
   return (
@@ -91,19 +51,19 @@ function FeeHeadSetupPage() {
 
       <SectionCard title="Fee Head Setup" icon={ListChecks}>
         <form onSubmit={handleAdd} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-1">
               <label htmlFor="fh-head-type" className={labelClasses}>
                 Head Type
               </label>
               <select
                 id="fh-head-type"
-                value={headType}
-                onChange={(e) => setHeadType(e.target.value)}
+                value={headtype}
+                onChange={(e) => setHeadtype(e.target.value as FeeHeadType)}
                 className={inputClasses}
               >
                 <option value="">Select head type</option>
-                {HEAD_TYPE_OPTIONS.map((opt) => (
+                {FEE_HEAD_TYPES.map((opt) => (
                   <option key={opt} value={opt}>
                     {opt}
                   </option>
@@ -115,124 +75,69 @@ function FeeHeadSetupPage() {
               <label htmlFor="fh-session" className={labelClasses}>
                 Session
               </label>
-              <input
+              <select
                 id="fh-session"
                 value={session}
                 onChange={(e) => setSession(e.target.value)}
-                placeholder="e.g. 2026-27"
                 className={inputClasses}
-              />
+                disabled={sessionsLoading || sessions.length === 0}
+              >
+                <option value="">
+                  {sessionsLoading
+                    ? "Loading sessions…"
+                    : sessions.length === 0
+                    ? "No sessions found — add one from Dashboard"
+                    : "Select a session"}
+                </option>
+                {sessions.map((s) => (
+                  <option key={s._id} value={s.session}>
+                    {s.session}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="space-y-1">
               <label htmlFor="fh-fee-head" className={labelClasses}>
                 Fee Head
               </label>
-              <select
+              <input
                 id="fh-fee-head"
-                value={feeHead}
-                onChange={(e) => setFeeHead(e.target.value)}
+                value={feehead}
+                onChange={(e) => setFeehead(e.target.value)}
+                placeholder="e.g. Tuition Fee"
                 className={inputClasses}
-              >
-                <option value="">Select fee head</option>
-                {FEE_HEAD_OPTIONS.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-5">
-            <label className="flex items-center gap-2 text-sm text-ink">
-              <input
-                type="checkbox"
-                checked={dayScholar}
-                onChange={(e) => setDayScholar(e.target.checked)}
-                className="h-4 w-4 accent-marigold"
-              />
-              Day Scholar
-            </label>
-            <label className="flex items-center gap-2 text-sm text-ink">
-              <input
-                type="checkbox"
-                checked={boarder}
-                onChange={(e) => setBoarder(e.target.checked)}
-                className="h-4 w-4 accent-marigold"
-              />
-              Boarder
-            </label>
-          </div>
+          {createError && (
+            <p role="alert" className="rounded-md bg-red-50 px-3.5 py-2 text-sm text-red-600">
+              {createError}
+            </p>
+          )}
 
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="submit"
-              disabled={!canAdd}
-              className="flex items-center justify-center gap-1.5 rounded-md bg-marigold px-4 py-2 text-sm font-medium text-chalkboard transition hover:bg-marigold-dark disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <Plus size={15} />
-              Add Head
-            </button>
-
-            <div className="flex items-center gap-2">
-              <select
-                value={copyFromSession}
-                onChange={(e) => setCopyFromSession(e.target.value)}
-                className={`${inputClasses} sm:w-48`}
-                disabled={pastSessions.length === 0}
-              >
-                <option value="">
-                  {pastSessions.length === 0 ? "No other sessions yet" : "Copy from session"}
-                </option>
-                {pastSessions.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={handleGetFromOtherSession}
-                disabled={!copyFromSession || !session.trim()}
-                className="flex items-center justify-center gap-1.5 rounded-md border border-line bg-white px-4 py-2 text-sm font-medium text-ink transition hover:bg-chalk disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <RefreshCw size={15} />
-                Get From Other Session
-              </button>
-            </div>
-          </div>
+          <button
+            type="submit"
+            disabled={!canAdd || isCreating}
+            className="flex items-center justify-center gap-1.5 rounded-md bg-marigold px-4 py-2 text-sm font-medium text-chalkboard transition hover:bg-marigold-dark disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Plus size={15} />
+            {isCreating ? "Adding…" : "Add Head"}
+          </button>
         </form>
 
         <div className="mt-5 border-t border-line pt-4">
-          <EntityTable<FeeHeadRow>
-            items={rows}
-            isLoading={false}
-            error={null}
+          <EntityTable<FeeHeadSetup>
+            items={feeHeads}
+            isLoading={isLoading}
+            error={loadError}
             emptyLabel="No fee heads added yet."
-            getRowKey={(item) => item.id}
+            getRowKey={(item) => item._id}
             columns={[
-              {
-                header: "Head Name",
-                render: (item) => <span className="font-medium">{item.headName}</span>,
-              },
-              { header: "Head Type", render: (item) => item.headType },
+              { header: "Fee Head", render: (item) => <span className="font-medium">{item.feehead}</span> },
+              { header: "Head Type", render: (item) => item.headtype },
               { header: "Session", render: (item) => item.session },
-              { header: "Day Scholar", render: (item) => (item.dayScholar ? "Yes" : "No") },
-              { header: "Boarder", render: (item) => (item.boarder ? "Yes" : "No") },
-              {
-                header: "Action",
-                render: (item) => (
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(item.id)}
-                    aria-label="Delete"
-                    className="text-red-500 hover:text-red-600"
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                ),
-              },
             ]}
           />
         </div>

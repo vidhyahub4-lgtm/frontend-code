@@ -10,6 +10,8 @@ import type {
   CreateSectionRequest,
   CreateSessionRequest,
   CreateStateRequest,
+  CreateFeeHeadSetupRequest,
+  CreateFeePlanTypeRequest,
   CheckSchoolCodeResponse,
   GetBoardsResponse,
   GetCitiesResponse,
@@ -21,6 +23,8 @@ import type {
   GetSectionsResponse,
   GetSessionsResponse,
   GetStatesResponse,
+  GetFeeHeadSetupsResponse,
+  GetFeePlanTypesResponse,
 } from "../types/superadmin.types";
 
 export const superAdminService = {
@@ -135,6 +139,32 @@ export const superAdminService = {
   },
   getSessions() {
     return apiRequest<GetSessionsResponse>("/super-admin/get-session", {
+      method: "GET",
+    });
+  },
+
+  // ---- Fee Head Setup ----
+  createFeeHeadSetup(payload: CreateFeeHeadSetupRequest) {
+    return apiRequest<ApiAckResponse>("/super-admin/fee-head-setup", {
+      method: "POST",
+      body: payload,
+    });
+  },
+  getFeeHeadSetups() {
+    return apiRequest<GetFeeHeadSetupsResponse>("/super-admin/get-fee-head-setup", {
+      method: "GET",
+    });
+  },
+
+  // ---- Fee Plan Type ----
+  createFeePlanType(payload: CreateFeePlanTypeRequest) {
+    return apiRequest<ApiAckResponse>("/super-admin/fee-plan-type", {
+      method: "POST",
+      body: payload,
+    });
+  },
+  getFeePlanTypes() {
+    return apiRequest<GetFeePlanTypesResponse>("/super-admin/get-fee-plan-type", {
       method: "GET",
     });
   },

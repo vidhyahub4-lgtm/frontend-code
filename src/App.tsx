@@ -10,6 +10,7 @@ import InstitutionProfilePage from "./pages/superadmin/InstitutionProfilePage";
 import ClassSectionSetupPage from "./pages/schoolsetting/ClassSectionSetupPage";
 import ClassPayModeSetupPage from "./pages/superadmin/ClassPayModeSetupPage";
 import FeeHeadSetupPage from "./pages/superadmin/FeeHeadSetupPage";
+import FeePlanTypePage from "./pages/superadmin/FeePlanTypePage";
 import LateFineSetupPage from "./pages/superadmin/LateFineSetupPage";
 import { AuthProvider } from "./context/AuthContext";
 import { ProtectedRoute } from "./routes/ProtectedRoute";
@@ -56,6 +57,10 @@ function App() {
             <Route
               path="/superadmin/fee-setting/fee-head-setup"
               element={<FeeHeadSetupPage />}
+            />
+            <Route
+              path="/superadmin/fee-setting/fee-plan-type"
+              element={<FeePlanTypePage />}
             />
             <Route
               path="/superadmin/fee-setting/late-fine-setup"

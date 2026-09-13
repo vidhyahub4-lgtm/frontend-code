@@ -74,6 +74,52 @@ export interface GetSessionsResponse {
   sessions: Session[];
 }
 
+// Must match the backend enum exactly (models/super-admin/feeheadSetup.js)
+export const FEE_HEAD_TYPES = [
+  "admisssion",
+  "promotion",
+  "monthly",
+  "Misc",
+  "special ocassion",
+] as const;
+export type FeeHeadType = (typeof FEE_HEAD_TYPES)[number];
+
+export interface FeeHeadSetup {
+  _id: string;
+  headtype: FeeHeadType;
+  session: string;
+  feehead: string;
+  createdAt?: string;
+}
+
+export interface CreateFeeHeadSetupRequest {
+  headtype: FeeHeadType;
+  session: string;
+  feehead: string;
+}
+
+export interface GetFeeHeadSetupsResponse {
+  success: boolean;
+  message: string;
+  feeHeads: FeeHeadSetup[];
+}
+
+export interface FeePlanType {
+  _id: string;
+  plan: string;
+  createdAt?: string;
+}
+
+export interface CreateFeePlanTypeRequest {
+  plan: string;
+}
+
+export interface GetFeePlanTypesResponse {
+  success: boolean;
+  message: string;
+  feePlans: FeePlanType[];
+}
+
 export interface City {
   _id: string;
   cityName: string;
