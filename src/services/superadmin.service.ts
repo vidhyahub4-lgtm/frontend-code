@@ -8,6 +8,7 @@ import type {
   CreateSchoolRequest,
   CreateSchoolPayModeRequest,
   CreateSectionRequest,
+  CreateSessionRequest,
   CreateStateRequest,
   CheckSchoolCodeResponse,
   GetBoardsResponse,
@@ -18,6 +19,7 @@ import type {
   GetSchoolPayModeResponse,
   UpdateFeeStructureEntryRequest,
   GetSectionsResponse,
+  GetSessionsResponse,
   GetStatesResponse,
 } from "../types/superadmin.types";
 
@@ -122,6 +124,19 @@ export const superAdminService = {
       "/super-admin/check-school-code",
       { method: "POST", body: { code } }
     );
+  },
+
+  // ---- Session (Financial Year, e.g. "2026-27") ----
+  createSession(payload: CreateSessionRequest) {
+    return apiRequest<ApiAckResponse>("/super-admin/create-session", {
+      method: "POST",
+      body: payload,
+    });
+  },
+  getSessions() {
+    return apiRequest<GetSessionsResponse>("/super-admin/get-session", {
+      method: "GET",
+    });
   },
 
   // ---- Fee Setting: Class PayMode Setup ----

@@ -197,6 +197,14 @@ function ClassPayModeSetupPage() {
     create: () => Promise.resolve(),
   });
 
+  const { items: sessions, isLoading: sessionsLoading } = useEntityCrud<
+    { _id: string; session: string },
+    never
+  >({
+    fetchList: () => superAdminService.getSessions().then((res) => res.sessions ?? []),
+    create: () => Promise.resolve(),
+  });
+
   const [schoolID, setSchoolID] = useState("");
   const selectedSchool = useMemo(() => schools.find((s) => s._id === schoolID), [schools, schoolID]);
 
@@ -385,13 +393,26 @@ function ClassPayModeSetupPage() {
                     <label htmlFor="pm-session" className={labelClasses}>
                       Session
                     </label>
-                    <input
+                    <select
                       id="pm-session"
                       value={session}
                       onChange={(e) => setSession(e.target.value)}
-                      placeholder="e.g. 2026-27"
                       className={inputClasses}
-                    />
+                      disabled={sessionsLoading || sessions.length === 0}
+                    >
+                      <option value="">
+                        {sessionsLoading
+                          ? "Loading sessions…"
+                          : sessions.length === 0
+                          ? "No sessions found — add one from Dashboard"
+                          : "Select a session"}
+                      </option>
+                      {sessions.map((s) => (
+                        <option key={s._id} value={s.session}>
+                          {s.session}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <button
                     onClick={startNewSession}

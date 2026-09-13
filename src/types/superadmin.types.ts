@@ -56,6 +56,24 @@ export interface GetStatesResponse {
   states: State[];
 }
 
+export interface Session {
+  _id: string;
+  session: string;
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateSessionRequest {
+  session: string;
+}
+
+export interface GetSessionsResponse {
+  success: boolean;
+  message: string;
+  sessions: Session[];
+}
+
 export interface City {
   _id: string;
   cityName: string;
