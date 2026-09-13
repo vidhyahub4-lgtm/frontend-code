@@ -110,6 +110,13 @@ function InstitutionProfilePage() {
     [refs.cities, form.stateId]
   );
 
+  // Only "admin" type users should be assignable as an institution admin —
+  // superAdmin accounts manage the whole platform, not a single school.
+  const adminUsers = useMemo(
+    () => refs.users.filter((u) => u.userType === "admin"),
+    [refs.users]
+  );
+
   const adminNameById = useMemo(() => {
     const map = new Map<string, string>();
     refs.users.forEach((u) => map.set(u._id, `${u.firstname} ${u.lastname}`));
@@ -304,10 +311,12 @@ function InstitutionProfilePage() {
               value={form.admin}
               onChange={(e) => updateField("admin", e.target.value)}
               className={inputClasses}
-              disabled={refs.users.length === 0}
+              disabled={adminUsers.length === 0}
             >
-              <option value="">Select an admin user</option>
-              {refs.users.map((u) => (
+              <option value="">
+                {adminUsers.length === 0 ? "No admin users found" : "Select an admin user"}
+              </option>
+              {adminUsers.map((u) => (
                 <option key={u._id} value={u._id}>
                   {u.firstname} {u.lastname} ({u.loginUserName})
                 </option>
