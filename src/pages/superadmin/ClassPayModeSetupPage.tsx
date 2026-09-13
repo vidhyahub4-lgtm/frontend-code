@@ -251,8 +251,21 @@ function ClassPayModeSetupPage() {
       .then((res) => {
         const classes = res.schClasses ?? [];
         setSchClasses(classes);
+
+        // A school can assign the same class to multiple sections
+        // (e.g. "First - A" and "First - B"), but the fee structure is
+        // tracked per CLASS only (no section field) — so dedupe here,
+        // otherwise the same class would show up as duplicate rows and
+        // editing one would silently update the other (same classID).
+        const uniqueByClassId = new Map<string, (typeof classes)[number]>();
+        classes.forEach((c) => {
+          if (!uniqueByClassId.has(c.classID._id)) {
+            uniqueByClassId.set(c.classID._id, c);
+          }
+        });
+
         setDraftRows(
-          classes.map((c) => ({
+          Array.from(uniqueByClassId.values()).map((c) => ({
             classID: c.classID._id,
             className: `${c.classID.classInWord} (${c.classID.className})`,
             duration: DURATION_OPTIONS[0],
