@@ -12,6 +12,9 @@ import ClassPayModeSetupPage from "./pages/superadmin/ClassPayModeSetupPage";
 import FeeHeadSetupPage from "./pages/superadmin/FeeHeadSetupPage";
 import FeePlanTypePage from "./pages/superadmin/FeePlanTypePage";
 import LateFineSetupPage from "./pages/superadmin/LateFineSetupPage";
+import NewRegistrationPage from "./pages/studentmanagement/NewRegistrationPage";
+import ViewRegisteredStudentPage from "./pages/studentmanagement/ViewRegisteredStudentPage";
+import NewAdmissionPage from "./pages/studentmanagement/NewAdmissionPage";
 import { AuthProvider } from "./context/AuthContext";
 import { ProtectedRoute } from "./routes/ProtectedRoute";
 import { AppLayout } from "./components/layout/AppLayout";
@@ -65,6 +68,18 @@ function App() {
             <Route
               path="/superadmin/fee-setting/late-fine-setup"
               element={<LateFineSetupPage />}
+            />
+            <Route
+              path="/student-management/registration/new-registration"
+              element={<NewRegistrationPage />}
+            />
+            <Route
+              path="/student-management/registration/view-registered-student"
+              element={<ViewRegisteredStudentPage />}
+            />
+            <Route
+              path="/student-management/admission/new-admission"
+              element={<NewAdmissionPage />}
             />
             {/* Sidebar links whose pages aren't built yet land here */}
             <Route path="*" element={<ComingSoonPage />} />
