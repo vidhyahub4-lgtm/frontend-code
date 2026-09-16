@@ -3,6 +3,8 @@ import type { ApiAckResponse } from "../types/api.types";
 import type {
   CreateSchClassRequest,
   GetSchClassesResponse,
+  CreateFeePlanSetupRequest,
+  GetFeePlanSetupsResponse,
 } from "../types/superadmin.types";
 
 export const schoolSettingService = {
@@ -17,6 +19,21 @@ export const schoolSettingService = {
     const query = schoolID ? `?schoolID=${encodeURIComponent(schoolID)}` : "";
     return apiRequest<GetSchClassesResponse>(
       `/school-settings/get-sch-class${query}`,
+      { method: "GET" }
+    );
+  },
+
+  // ---- Fee Setting: Fee Plan Setup ----
+  createFeePlanSetup(payload: CreateFeePlanSetupRequest) {
+    return apiRequest<ApiAckResponse>("/school-settings/create-feeplansetup", {
+      method: "POST",
+      body: payload,
+    });
+  },
+  getFeePlanSetups(schId?: string) {
+    const query = schId ? `?schId=${encodeURIComponent(schId)}` : "";
+    return apiRequest<GetFeePlanSetupsResponse>(
+      `/school-settings/get-feeplansetup${query}`,
       { method: "GET" }
     );
   },

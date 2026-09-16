@@ -294,6 +294,102 @@ export interface GetSchClassesResponse {
   schClasses: SchClass[];
 }
 
+// ---- School Setting: Fee Setting -> Fee Plan Setup ----
+// Must match the backend enum exactly (models/school-setting/feeplansetup.js).
+// Note: unlike FEE_HEAD_TYPES above, this one spells "admission" correctly.
+export const FEE_PLAN_HEAD_TYPES = [
+  "admission",
+  "promotion",
+  "monthly",
+  "Misc",
+  "special ocassion",
+] as const;
+export type FeePlanHeadType = (typeof FEE_PLAN_HEAD_TYPES)[number];
+
+export interface FeePlanSetupClassEntry {
+  classID: SchClassRef;
+  amount: number;
+  _id?: string;
+}
+
+export interface FeePlanSetupSessionRef {
+  _id: string;
+  session: string;
+}
+
+export interface FeePlanSetup {
+  _id: string;
+  headType: FeePlanHeadType;
+  session: FeePlanSetupSessionRef;
+  classes: FeePlanSetupClassEntry[];
+  schId: SchSchoolRef;
+  createdby?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** Payload shape for creating a fee plan setup — `classID` here is the
+ * raw id (not populated) since this is what the backend expects on write. */
+export interface CreateFeePlanSetupClassEntry {
+  classID: string;
+  amount: number;
+}
+
+export interface CreateFeePlanSetupRequest {
+  headType: FeePlanHeadType;
+  session: string;
+  schId: string;
+  classes: CreateFeePlanSetupClassEntry[];
+}
+
+export interface GetFeePlanSetupsResponse {
+  success: boolean;
+  message: string;
+  count: number;
+  data: FeePlanSetup[];
+}
+
+// ---- Super Admin: Fee Setting -> Late Fine Setup ----
+// Must match the backend enum exactly (models/super-admin/lateFineSetup.js) —
+// note "dialy" is a typo in the backend enum, kept as-is so the value round-trips.
+export const LATE_FINE_TYPES = ["fixed", "dialy"] as const;
+export type LateFineType = (typeof LATE_FINE_TYPES)[number];
+
+export interface LateFineSetupClassRef {
+  _id: string;
+  classID: { _id: string; className: string; classInWord: string };
+  sectionID: { _id: string; sectionName: string };
+}
+
+export interface LateFineSetup {
+  _id: string;
+  session: FeePlanSetupSessionRef;
+  class: LateFineSetupClassRef;
+  selectInstallemt: number;
+  duedateAfter: string;
+  fineType: LateFineType;
+  amount: string;
+  schId: { _id: string; schName: string; schAdd: string };
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateLateFineSetupRequest {
+  session: string;
+  class: string;
+  selectInstallemt: number;
+  duedateAfter: string;
+  fineType: LateFineType;
+  amount: string;
+  schId: string;
+}
+
+export interface GetLateFineSetupsResponse {
+  success: boolean;
+  message: string;
+  data: LateFineSetup[];
+}
+
 // ---- Super Admin: Fee Setting -> Class PayMode Setup ----
 
 export interface PayModeInstallment {

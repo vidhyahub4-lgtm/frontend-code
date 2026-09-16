@@ -8,6 +8,8 @@ import ClassSectionPage from "./pages/superadmin/ClassSectionPage";
 import ManageUserPage from "./pages/superadmin/ManageUserPage";
 import InstitutionProfilePage from "./pages/superadmin/InstitutionProfilePage";
 import ClassSectionSetupPage from "./pages/schoolsetting/ClassSectionSetupPage";
+import FeePlanSetupPage from "./pages/schoolsetting/FeePlanSetupPage";
+import LateFinePage from "./pages/schoolsetting/LateFinePage";
 import ClassPayModeSetupPage from "./pages/superadmin/ClassPayModeSetupPage";
 import FeeHeadSetupPage from "./pages/superadmin/FeeHeadSetupPage";
 import FeePlanTypePage from "./pages/superadmin/FeePlanTypePage";
@@ -47,6 +49,14 @@ function App() {
             <Route
               path="/school-setting/essential-setting/class-section-setup"
               element={<ClassSectionSetupPage />}
+            />
+            <Route
+              path="/school-setting/fee-setting/fee-plan-setup"
+              element={<FeePlanSetupPage />}
+            />
+            <Route
+              path="/school-setting/fee-setting/late-fine"
+              element={<LateFinePage />}
             />
             {/* "/superadmin/fee-setting" kept for backward compatibility —
                 the sidebar's Class PayMode Setup child now points at the

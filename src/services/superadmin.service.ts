@@ -25,6 +25,8 @@ import type {
   GetStatesResponse,
   GetFeeHeadSetupsResponse,
   GetFeePlanTypesResponse,
+  CreateLateFineSetupRequest,
+  GetLateFineSetupsResponse,
 } from "../types/superadmin.types";
 
 export const superAdminService = {
@@ -167,6 +169,20 @@ export const superAdminService = {
     return apiRequest<GetFeePlanTypesResponse>("/super-admin/get-fee-plan-type", {
       method: "GET",
     });
+  },
+
+  // ---- Fee Setting: Late Fine Setup ----
+  createLateFineSetup(payload: CreateLateFineSetupRequest) {
+    return apiRequest<ApiAckResponse>("/super-admin/late-fine-setup", {
+      method: "POST",
+      body: payload,
+    });
+  },
+  getLateFineSetups() {
+    return apiRequest<GetLateFineSetupsResponse>(
+      "/super-admin/get-lat-fine-setup",
+      { method: "GET" }
+    );
   },
 
   // ---- Fee Setting: Class PayMode Setup ----
