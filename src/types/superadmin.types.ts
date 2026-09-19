@@ -84,11 +84,13 @@ export const FEE_HEAD_TYPES = [
 ] as const;
 export type FeeHeadType = (typeof FEE_HEAD_TYPES)[number];
 
+/** One document per school + headtype + session; `feehead` holds all head names. */
 export interface FeeHeadSetup {
   _id: string;
   headtype: FeeHeadType;
   session: string;
-  feehead: string;
+  feehead: string[];
+  schId: string;
   createdAt?: string;
 }
 
@@ -96,6 +98,7 @@ export interface CreateFeeHeadSetupRequest {
   headtype: FeeHeadType;
   session: string;
   feehead: string;
+  schId: string;
 }
 
 export interface GetFeeHeadSetupsResponse {

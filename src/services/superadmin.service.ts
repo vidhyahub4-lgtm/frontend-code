@@ -147,15 +147,18 @@ export const superAdminService = {
 
   // ---- Fee Head Setup ----
   createFeeHeadSetup(payload: CreateFeeHeadSetupRequest) {
-    return apiRequest<ApiAckResponse>("/super-admin/fee-head-setup", {
+    // Moved to /school-settings; fee heads are now scoped per school (schId).
+    return apiRequest<ApiAckResponse>("/school-settings/fee-head-setup", {
       method: "POST",
       body: payload,
     });
   },
-  getFeeHeadSetups() {
-    return apiRequest<GetFeeHeadSetupsResponse>("/super-admin/get-fee-head-setup", {
-      method: "GET",
-    });
+  getFeeHeadSetups(schId: string) {
+    // GET can't carry a body in browsers, so schId goes in the query string.
+    return apiRequest<GetFeeHeadSetupsResponse>(
+      `/school-settings/get-fee-head-setup?schId=${encodeURIComponent(schId)}`,
+      { method: "GET" }
+    );
   },
 
   // ---- Fee Plan Type ----
