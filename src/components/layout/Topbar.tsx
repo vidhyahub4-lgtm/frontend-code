@@ -1,6 +1,8 @@
-import { LogOut, Menu } from "lucide-react";
+import { LogOut, Menu, School } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { useSelectedSchool } from "../../hooks/useSelectedSchool";
+import { SchoolSwitcher } from "./SchoolSwitcher";
 
 interface TopbarProps {
   onMenuClick: () => void;
@@ -9,6 +11,8 @@ interface TopbarProps {
 export function Topbar({ onMenuClick }: TopbarProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { selectedSchool } = useSelectedSchool();
+  const isSuperAdmin = user?.userType === "superAdmin";
 
   function handleLogout() {
     logout();
@@ -28,9 +32,24 @@ export function Topbar({ onMenuClick }: TopbarProps) {
         <Menu size={22} />
       </button>
 
-      <div className="hidden lg:block" />
+      {/* Currently selected school (superAdmin only) */}
+      {isSuperAdmin ? (
+        <div className="flex min-w-0 items-center gap-2 rounded-full border border-line bg-white px-3 py-1 text-xs">
+          <School size={14} className="shrink-0 text-marigold-dark" />
+          <span className="truncate max-w-[9rem] sm:max-w-xs">
+            {selectedSchool ? (
+              <span className="font-medium text-ink">{selectedSchool.name}</span>
+            ) : (
+              <span className="text-ink-soft">No school selected</span>
+            )}
+          </span>
+        </div>
+      ) : (
+        <div className="hidden lg:block" />
+      )}
 
       <div className="flex items-center gap-3">
+        {isSuperAdmin && <SchoolSwitcher />}
         {user && (
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-chalkboard text-xs font-semibold text-chalk">
