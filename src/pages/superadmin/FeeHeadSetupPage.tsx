@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { ListChecks, Plus, School } from "lucide-react";
 import { SectionCard } from "../../components/common/SectionCard";
 import { EntityTable } from "../../components/common/EntityTable";
@@ -10,6 +11,7 @@ import type {
   CreateFeeHeadSetupRequest,
   FeeHeadSetup,
   FeeHeadType,
+  FeePlanType,
   Session,
 } from "../../types/superadmin.types";
 
@@ -65,13 +67,51 @@ function FeeHeadSetupContent({
     [feeHeadDocs]
   );
 
+  // The Fee Head dropdown offers the plans created for this school on the
+  // Fee Plan Type page (same API, same per-school `plan` array).
+  const {
+    items: feePlanDocs,
+    isLoading: plansLoading,
+    loadError: plansError,
+  } = useEntityCrud<FeePlanType, never>({
+    fetchList: () => superAdminService.getFeePlanTypes(schId).then((res) => res.feePlans ?? []),
+    create: () => Promise.resolve(),
+  });
+
+  const planNames = useMemo(
+    () => Array.from(new Set(feePlanDocs.flatMap((doc) => doc.plan))),
+    [feePlanDocs]
+  );
+
   const [headtype, setHeadtype] = useState<FeeHeadType | "">("");
   const [session, setSession] = useState("");
   const [feehead, setFeehead] = useState("");
 
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
 
+  // Hide plans already added for the chosen head type + session, so a
+  // duplicate can't even be picked.
+  const availablePlans = useMemo(() => {
+    if (!headtype || !session) return planNames;
+    const used = new Set(
+      rows
+        .filter((row) => row.headtype === headtype && row.session === session)
+        .map((row) => row.feehead.toLowerCase())
+    );
+    return planNames.filter((name) => !used.has(name.toLowerCase()));
+  }, [planNames, rows, headtype, session]);
+
   const canAdd = Boolean(headtype && session && feehead.trim());
+
+  const feeHeadPlaceholder = plansLoading
+    ? "Loading plans…"
+    : plansError
+    ? "Could not load plans"
+    : planNames.length === 0
+    ? "No fee plans found"
+    : availablePlans.length === 0
+    ? "All plans already added"
+    : "Select a fee head";
 
   async function handleAdd(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -111,6 +151,7 @@ function FeeHeadSetupContent({
               value={headtype}
               onChange={(e) => {
                 setHeadtype(e.target.value as FeeHeadType);
+                setFeehead("");
                 setDuplicateError(null);
               }}
               className={inputClasses}
@@ -133,6 +174,7 @@ function FeeHeadSetupContent({
               value={session}
               onChange={(e) => {
                 setSession(e.target.value);
+                setFeehead("");
                 setDuplicateError(null);
               }}
               className={inputClasses}
@@ -157,16 +199,35 @@ function FeeHeadSetupContent({
             <label htmlFor="fh-fee-head" className={labelClasses}>
               Fee Head
             </label>
-            <input
+            <select
               id="fh-fee-head"
               value={feehead}
               onChange={(e) => {
                 setFeehead(e.target.value);
                 setDuplicateError(null);
               }}
-              placeholder="e.g. Tuition Fee"
               className={inputClasses}
-            />
+              disabled={plansLoading || Boolean(plansError) || availablePlans.length === 0}
+            >
+              <option value="">{feeHeadPlaceholder}</option>
+              {availablePlans.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+            {!plansLoading && !plansError && planNames.length === 0 && (
+              <p className="text-xs text-ink-soft">
+                Add plans first from{" "}
+                <Link
+                  to="/superadmin/fee-setting/fee-plan-type"
+                  className="font-medium text-marigold-dark hover:underline"
+                >
+                  Fee Plan Type
+                </Link>
+                .
+              </p>
+            )}
           </div>
         </div>
 
