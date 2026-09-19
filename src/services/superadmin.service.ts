@@ -160,15 +160,18 @@ export const superAdminService = {
 
   // ---- Fee Plan Type ----
   createFeePlanType(payload: CreateFeePlanTypeRequest) {
-    return apiRequest<ApiAckResponse>("/super-admin/fee-plan-type", {
+    // Moved to /school-settings; the backend now scopes plans per school (schId).
+    return apiRequest<ApiAckResponse>("/school-settings/fee-plan-type", {
       method: "POST",
       body: payload,
     });
   },
-  getFeePlanTypes() {
-    return apiRequest<GetFeePlanTypesResponse>("/super-admin/get-fee-plan-type", {
-      method: "GET",
-    });
+  getFeePlanTypes(schId: string) {
+    // GET requests can't carry a body in browsers, so schId goes in the query string.
+    return apiRequest<GetFeePlanTypesResponse>(
+      `/school-settings/get-fee-plan-type?schId=${encodeURIComponent(schId)}`,
+      { method: "GET" }
+    );
   },
 
   // ---- Fee Setting: Late Fine Setup ----

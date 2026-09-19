@@ -104,14 +104,17 @@ export interface GetFeeHeadSetupsResponse {
   feeHeads: FeeHeadSetup[];
 }
 
+/** One document per school; `plan` holds ALL plan names for that school. */
 export interface FeePlanType {
   _id: string;
-  plan: string;
+  plan: string[];
+  schId: string;
   createdAt?: string;
 }
 
 export interface CreateFeePlanTypeRequest {
   plan: string;
+  schId: string;
 }
 
 export interface GetFeePlanTypesResponse {
