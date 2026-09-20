@@ -1,159 +1,161 @@
-import { useState, type FormEvent } from "react";
-import { Camera, Mail, MessageSquare, UserPlus } from "lucide-react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { Camera, CheckCircle2, School, UserPlus } from "lucide-react";
 import { SectionCard } from "../../components/common/SectionCard";
+import { useSelectedSchool } from "../../hooks/useSelectedSchool";
+import { useSelectedSession } from "../../hooks/useSelectedSession";
+import { schoolSettingService } from "../../services/schoolSetting.service";
+import { superAdminService } from "../../services/superadmin.service";
+import { ApiError } from "../../types/api.types";
+import type { Session } from "../../types/superadmin.types";
 
 const inputClasses =
   "w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-marigold/40";
 const labelClasses = "text-sm font-medium text-ink-soft";
 const requiredLabelClasses = `${labelClasses} after:ml-0.5 after:text-marigold-dark after:content-['*']`;
 
-type Tab = "basic" | "personal" | "address";
+// Rules below mirror the backend model (models/school-setting/newRegistration.js)
+const MOBILE_REGEX = /^[6-9]\d{9}$/;
+const AADHAAR_REGEX = /^\d{12}$/;
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const PHOTO_MAX_BYTES = 2 * 1024 * 1024; // backend multer limit: 2 MB
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: "basic", label: "Basic Information" },
-  { id: "personal", label: "Personal & Parents Details" },
-  { id: "address", label: "Address & Documents" },
-];
-
-interface BasicInfo {
-  session: string;
-  studentName: string;
-  fatherName: string;
-  motherName: string;
-  guardianName: string;
+/**
+ * Only fields the backend actually saves are collected here.
+ * Names match the API payload keys exactly.
+ */
+interface FormValues {
+  sname: string;
+  fname: string;
+  mname: string;
+  gname: string;
   gender: "male" | "female" | "other";
   dob: string;
   age: string;
-  category: "general" | "obc" | "sc" | "st" | "ewc" | "ph";
+  category: "general" | "obc" | "sc" | "st";
   nationality: string;
   religion: string;
-  subReligion: string;
-  mobile1: string;
-  mobile2: string;
+  mothertongue: string;
+  secLang: string;
+  adharId: string;
+  penno: string;
+  mob1: string;
+  mob2: string;
+  whatAppno: string;
   email: string;
-  whatsappNo: string;
-  motherTongue: string;
-  secondLanguage: string;
-  thirdLanguage: string;
-  transportMode: string;
-  medicalHistory: string;
-  aadhaarNo: string;
-  satsNo: string;
-  penNo: string;
-  onlyChild: boolean;
-  studentType: "dayscholar" | "boarder";
-  teachersWard: string;
-  lastClass: string;
-  lastSchool: string;
-  lastSchoolPercent: string;
-  lastSchoolTc: string;
-  lastSchoolBoard: string;
-  classApplying: string;
-  registrationDate: string;
+  lclass: string;
+  lsch: string;
+  lper: string;
+  lboard: string;
+  classApplyfor: string;
+  registrationdate: string;
 }
 
-const EMPTY_BASIC: BasicInfo = {
-  session: "2026-27",
-  studentName: "",
-  fatherName: "",
-  motherName: "",
-  guardianName: "",
-  gender: "male",
-  dob: "",
-  age: "",
-  category: "general",
-  nationality: "Indian",
-  religion: "",
-  subReligion: "",
-  mobile1: "",
-  mobile2: "",
-  email: "",
-  whatsappNo: "",
-  motherTongue: "",
-  secondLanguage: "",
-  thirdLanguage: "",
-  transportMode: "self",
-  medicalHistory: "",
-  aadhaarNo: "",
-  satsNo: "",
-  penNo: "",
-  onlyChild: false,
-  studentType: "dayscholar",
-  teachersWard: "no",
-  lastClass: "",
-  lastSchool: "",
-  lastSchoolPercent: "",
-  lastSchoolTc: "",
-  lastSchoolBoard: "",
-  classApplying: "",
-  registrationDate: new Date().toISOString().slice(0, 10),
-};
+type FieldKey = keyof FormValues | "session";
+type Errors = Partial<Record<FieldKey, string>>;
 
-interface PersonalInfo {
-  fatherOccupation: string;
-  fatherQualification: string;
-  fatherMobile: string;
-  fatherEmail: string;
-  fatherAadhaar: string;
-  motherOccupation: string;
-  motherQualification: string;
-  motherMobile: string;
-  motherEmail: string;
-  motherAadhaar: string;
-  guardianRelation: string;
-  guardianMobile: string;
-  annualIncome: string;
-  bloodGroup: string;
+function emptyValues(): FormValues {
+  return {
+    sname: "",
+    fname: "",
+    mname: "",
+    gname: "",
+    gender: "male",
+    dob: "",
+    age: "",
+    category: "general",
+    nationality: "Indian",
+    religion: "",
+    mothertongue: "",
+    secLang: "",
+    adharId: "",
+    penno: "",
+    mob1: "",
+    mob2: "",
+    whatAppno: "",
+    email: "",
+    lclass: "",
+    lsch: "",
+    lper: "",
+    lboard: "",
+    classApplyfor: "",
+    registrationdate: new Date().toISOString().slice(0, 10),
+  };
 }
 
-const EMPTY_PERSONAL: PersonalInfo = {
-  fatherOccupation: "",
-  fatherQualification: "",
-  fatherMobile: "",
-  fatherEmail: "",
-  fatherAadhaar: "",
-  motherOccupation: "",
-  motherQualification: "",
-  motherMobile: "",
-  motherEmail: "",
-  motherAadhaar: "",
-  guardianRelation: "",
-  guardianMobile: "",
-  annualIncome: "",
-  bloodGroup: "",
-};
-
-interface AddressInfo {
-  currentAddress: string;
-  currentCity: string;
-  currentState: string;
-  currentPincode: string;
-  sameAsCurrent: boolean;
-  permanentAddress: string;
-  permanentCity: string;
-  permanentState: string;
-  permanentPincode: string;
+function ageFromDob(dob: string): string {
+  const birth = new Date(dob);
+  if (Number.isNaN(birth.getTime())) return "";
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const hadBirthday =
+    today.getMonth() > birth.getMonth() ||
+    (today.getMonth() === birth.getMonth() && today.getDate() >= birth.getDate());
+  if (!hadBirthday) age -= 1;
+  return age >= 1 ? String(age) : "";
 }
 
-const EMPTY_ADDRESS: AddressInfo = {
-  currentAddress: "",
-  currentCity: "",
-  currentState: "",
-  currentPincode: "",
-  sameAsCurrent: true,
-  permanentAddress: "",
-  permanentCity: "",
-  permanentState: "",
-  permanentPincode: "",
-};
+function validate(values: FormValues, sessionId: string): Errors {
+  const errors: Errors = {};
+  const required: [keyof FormValues, string][] = [
+    ["sname", "Student name"],
+    ["fname", "Father's name"],
+    ["mname", "Mother's name"],
+    ["gname", "Guardian's name"],
+    ["nationality", "Nationality"],
+    ["religion", "Religion"],
+    ["mothertongue", "Mother tongue"],
+    ["mob1", "Mobile 1"],
+    ["whatAppno", "WhatsApp number"],
+  ];
 
-const DOCUMENT_SLOTS = [
-  "Student Photo",
-  "Birth Certificate",
-  "Aadhaar Card",
-  "Previous School TC",
-  "Caste Certificate",
-];
+  if (!sessionId) errors.session = "Select a session.";
+  required.forEach(([key, label]) => {
+    if (!values[key].trim()) errors[key] = `${label} is required.`;
+  });
+
+  const age = Number(values.age);
+  if (!values.age.trim()) errors.age = "Age is required.";
+  else if (!Number.isInteger(age) || age < 1) errors.age = "Enter a valid age (1 or more).";
+
+  if (!errors.mob1 && !MOBILE_REGEX.test(values.mob1)) errors.mob1 = "Enter a valid 10-digit mobile number.";
+  if (values.mob2 && !MOBILE_REGEX.test(values.mob2)) errors.mob2 = "Enter a valid 10-digit mobile number.";
+  if (!errors.whatAppno && !MOBILE_REGEX.test(values.whatAppno))
+    errors.whatAppno = "Enter a valid 10-digit WhatsApp number.";
+  if (values.adharId && !AADHAAR_REGEX.test(values.adharId)) errors.adharId = "Aadhaar must be 12 digits.";
+  if (values.email && !EMAIL_REGEX.test(values.email)) errors.email = "Enter a valid email address.";
+  if (values.lper && Number.isNaN(Number(values.lper))) errors.lper = "Enter a number.";
+
+  return errors;
+}
+
+function Field({
+  id,
+  label,
+  required,
+  error,
+  children,
+}: {
+  id?: string;
+  label: string;
+  required?: boolean;
+  error?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="space-y-1">
+      <label htmlFor={id} className={required ? requiredLabelClasses : labelClasses}>
+        {label}
+      </label>
+      {children}
+      {error && <p className="text-xs text-red-600">{error}</p>}
+    </div>
+  );
+}
+
+function SectionHeading({ children }: { children: ReactNode }) {
+  return <h3 className="border-b border-line pb-2 font-display text-base text-ink">{children}</h3>;
+}
 
 function RadioGroup<T extends string>({
   name,
@@ -184,627 +186,540 @@ function RadioGroup<T extends string>({
   );
 }
 
-function NewRegistrationPage() {
-  const [activeTab, setActiveTab] = useState<Tab>("basic");
-  const [basic, setBasic] = useState<BasicInfo>(EMPTY_BASIC);
-  const [personal, setPersonal] = useState<PersonalInfo>(EMPTY_PERSONAL);
-  const [address, setAddress] = useState<AddressInfo>(EMPTY_ADDRESS);
-  const [savedMessage, setSavedMessage] = useState<string | null>(null);
+interface Photo {
+  file: File;
+  previewUrl: string;
+}
 
-  function updateBasic<K extends keyof BasicInfo>(key: K, value: BasicInfo[K]) {
-    setBasic((prev) => ({ ...prev, [key]: value }));
+/**
+ * The form itself. Rendered with key={schId} by the page below so switching
+ * school resets everything.
+ */
+function RegistrationForm({ schId, schCode }: { schId: string; schCode: string }) {
+  const { selectedSession } = useSelectedSession();
+  const globalSessionId = selectedSession?.id ?? "";
+
+  const [values, setValues] = useState<FormValues>(emptyValues);
+  const [errors, setErrors] = useState<Errors>({});
+  const [photo, setPhoto] = useState<Photo | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Sessions dropdown options (global list).
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(true);
+  const [sessionsError, setSessionsError] = useState<string | null>(null);
+
+  // The form's session starts as the globally selected one, and the user may
+  // override it here. The override remembers which global session it was made
+  // against, so when the global selection changes (Save in the settings
+  // panel) the form follows the new global session again.
+  const [override, setOverride] = useState<{ forGlobalId: string; value: string } | null>(null);
+  const sessionId =
+    override && override.forGlobalId === globalSessionId ? override.value : globalSessionId;
+
+  useEffect(() => {
+    let cancelled = false;
+    superAdminService
+      .getSessions()
+      .then((res) => {
+        if (!cancelled) setSessions(res.sessions ?? []);
+      })
+      .catch((err) => {
+        if (!cancelled)
+          setSessionsError(err instanceof ApiError ? err.message : "Could not load sessions.");
+      })
+      .finally(() => {
+        if (!cancelled) setSessionsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Free the photo's preview URL when the form goes away.
+  const previewUrlRef = useRef<string | null>(null);
+  useEffect(
+    () => () => {
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    },
+    []
+  );
+
+  function setValue<K extends keyof FormValues>(key: K, value: FormValues[K]) {
+    setValues((prev) => ({ ...prev, [key]: value }));
+    setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
   }
 
-  function updatePersonal<K extends keyof PersonalInfo>(key: K, value: PersonalInfo[K]) {
-    setPersonal((prev) => ({ ...prev, [key]: value }));
+  function handleDobChange(dob: string) {
+    setValue("dob", dob);
+    // Convenience: fill age from DOB (still editable).
+    const age = ageFromDob(dob);
+    if (age) setValue("age", age);
   }
 
-  function updateAddress<K extends keyof AddressInfo>(key: K, value: AddressInfo[K]) {
-    setAddress((prev) => ({ ...prev, [key]: value }));
+  function digitsOnly(value: string, max: number) {
+    return value.replace(/\D/g, "").slice(0, max);
   }
 
-  const canSubmit = Boolean(basic.studentName.trim() && basic.dob && basic.classApplying);
+  function clearPhoto() {
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    previewUrlRef.current = null;
+    setPhoto(null);
+  }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function handlePhotoChange(file: File | undefined) {
+    setPhotoError(null);
+    if (!file) return;
+    if (!PHOTO_TYPES.includes(file.type)) {
+      setPhotoError("Only JPG, PNG or WEBP images are allowed.");
+      return;
+    }
+    if (file.size > PHOTO_MAX_BYTES) {
+      setPhotoError("Photo must be 2 MB or smaller.");
+      return;
+    }
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    const previewUrl = URL.createObjectURL(file);
+    previewUrlRef.current = previewUrl;
+    setPhoto({ file, previewUrl });
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!canSubmit) return;
-    // UI-only for now — no registration API exists yet on the backend.
-    setSavedMessage("Form captured locally. Registration API isn't wired up yet.");
+    setSubmitError(null);
+    setSuccessMessage(null);
+
+    const found = validate(values, sessionId);
+    if (Object.keys(found).length > 0) {
+      setErrors(found);
+      setSubmitError("Please fix the highlighted fields.");
+      const firstKey = Object.keys(found)[0];
+      document.getElementById(`reg-${firstKey}`)?.focus();
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("schId", schId);
+    formData.append("schCode", schCode);
+    formData.append("session", sessionId);
+    (Object.keys(values) as (keyof FormValues)[]).forEach((key) => {
+      const value = values[key].trim();
+      if (value) formData.append(key, value); // skip empty optional fields
+    });
+    if (photo) formData.append("Image", photo.file);
+
+    setIsSubmitting(true);
+    try {
+      const res = await schoolSettingService.createNewRegistration(formData);
+      const regno = res.data?.regno;
+      setSuccessMessage(
+        regno !== undefined
+          ? `Registration saved. Registration No: ${regno}`
+          : "Registration saved successfully."
+      );
+      setValues(emptyValues());
+      setErrors({});
+      clearPhoto();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) {
+      setSubmitError(err instanceof ApiError ? err.message : "Could not save the registration.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
+
+  const cls = (key: FieldKey) => `${inputClasses} ${errors[key] ? "border-red-400" : ""}`;
+
+  return (
+    <SectionCard title="Student Registration" icon={UserPlus}>
+      <form onSubmit={handleSubmit} noValidate className="space-y-7">
+        {successMessage && (
+          <p
+            role="status"
+            className="flex items-center gap-2 rounded-md bg-green-50 px-3.5 py-2.5 text-sm text-green-700"
+          >
+            <CheckCircle2 size={16} /> {successMessage}
+          </p>
+        )}
+
+        {/* Registration details */}
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Field label="Registration No">
+            <input
+              value="Auto-generated on save"
+              readOnly
+              className={`${inputClasses} cursor-not-allowed bg-chalk/60 text-ink-soft`}
+            />
+          </Field>
+          <Field id="reg-session" label="Session" required error={errors.session ?? sessionsError ?? undefined}>
+            <select
+              id="reg-session"
+              value={sessionId}
+              onChange={(e) => {
+                setOverride({ forGlobalId: globalSessionId, value: e.target.value });
+                setErrors((prev) => ({ ...prev, session: undefined }));
+              }}
+              disabled={sessionsLoading}
+              className={cls("session")}
+            >
+              <option value="">{sessionsLoading ? "Loading sessions…" : "Select a session"}</option>
+              {sessions.map((session) => (
+                <option key={session._id} value={session._id}>
+                  {session.session}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field id="reg-registrationdate" label="Registration Date">
+            <input
+              id="reg-registrationdate"
+              type="date"
+              value={values.registrationdate}
+              onChange={(e) => setValue("registrationdate", e.target.value)}
+              className={inputClasses}
+            />
+          </Field>
+        </div>
+
+        {/* Student details */}
+        <section className="space-y-4">
+          <SectionHeading>Student Details</SectionHeading>
+
+          <div className="grid gap-5 md:grid-cols-[1fr_auto]">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <Field id="reg-sname" label="Student's Name" required error={errors.sname}>
+                  <input
+                    id="reg-sname"
+                    value={values.sname}
+                    onChange={(e) => setValue("sname", e.target.value)}
+                    className={cls("sname")}
+                  />
+                </Field>
+              </div>
+              <Field id="reg-fname" label="Father's Name" required error={errors.fname}>
+                <input
+                  id="reg-fname"
+                  value={values.fname}
+                  onChange={(e) => setValue("fname", e.target.value)}
+                  className={cls("fname")}
+                />
+              </Field>
+              <Field id="reg-mname" label="Mother's Name" required error={errors.mname}>
+                <input
+                  id="reg-mname"
+                  value={values.mname}
+                  onChange={(e) => setValue("mname", e.target.value)}
+                  className={cls("mname")}
+                />
+              </Field>
+              <div className="sm:col-span-2">
+                <Field id="reg-gname" label="Guardian's Name" required error={errors.gname}>
+                  <input
+                    id="reg-gname"
+                    value={values.gname}
+                    onChange={(e) => setValue("gname", e.target.value)}
+                    className={cls("gname")}
+                  />
+                </Field>
+              </div>
+            </div>
+
+            {/* Photo upload */}
+            <div className="flex flex-col items-center gap-2">
+              <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-md border border-dashed border-line bg-chalk/60 text-ink-soft">
+                {photo ? (
+                  <img src={photo.previewUrl} alt="Student preview" className="h-full w-full object-cover" />
+                ) : (
+                  <Camera size={24} />
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="cursor-pointer rounded-md border border-line bg-white px-3 py-1.5 text-xs font-medium text-ink-soft hover:bg-chalk">
+                  {photo ? "Change" : "Upload Photo"}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      handlePhotoChange(e.target.files?.[0]);
+                      e.target.value = ""; // allow re-picking the same file
+                    }}
+                  />
+                </label>
+                {photo && (
+                  <button
+                    type="button"
+                    onClick={clearPhoto}
+                    className="text-xs font-medium text-red-600 hover:underline"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+              <p className="max-w-[9rem] text-center text-[11px] text-ink-soft">JPG, PNG or WEBP, up to 2 MB</p>
+              {photoError && <p className="max-w-[9rem] text-center text-xs text-red-600">{photoError}</p>}
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Field label="Gender" required>
+              <RadioGroup
+                name="gender"
+                value={values.gender}
+                onChange={(v) => setValue("gender", v)}
+                options={[
+                  { value: "male", label: "Male" },
+                  { value: "female", label: "Female" },
+                  { value: "other", label: "Other" },
+                ]}
+              />
+            </Field>
+            <Field id="reg-dob" label="Date of Birth" error={errors.dob}>
+              <input
+                id="reg-dob"
+                type="date"
+                max={new Date().toISOString().slice(0, 10)}
+                value={values.dob}
+                onChange={(e) => handleDobChange(e.target.value)}
+                className={cls("dob")}
+              />
+            </Field>
+            <Field id="reg-age" label="Age" required error={errors.age}>
+              <input
+                id="reg-age"
+                inputMode="numeric"
+                value={values.age}
+                onChange={(e) => setValue("age", digitsOnly(e.target.value, 2))}
+                className={cls("age")}
+              />
+            </Field>
+          </div>
+
+          <Field label="Category" required>
+            <RadioGroup
+              name="category"
+              value={values.category}
+              onChange={(v) => setValue("category", v)}
+              options={[
+                { value: "general", label: "General" },
+                { value: "obc", label: "OBC" },
+                { value: "sc", label: "SC" },
+                { value: "st", label: "ST" },
+              ]}
+            />
+          </Field>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Field id="reg-nationality" label="Nationality" required error={errors.nationality}>
+              <input
+                id="reg-nationality"
+                value={values.nationality}
+                onChange={(e) => setValue("nationality", e.target.value)}
+                className={cls("nationality")}
+              />
+            </Field>
+            <Field id="reg-religion" label="Religion" required error={errors.religion}>
+              <input
+                id="reg-religion"
+                value={values.religion}
+                onChange={(e) => setValue("religion", e.target.value)}
+                className={cls("religion")}
+              />
+            </Field>
+            <Field id="reg-mothertongue" label="Mother Tongue" required error={errors.mothertongue}>
+              <input
+                id="reg-mothertongue"
+                value={values.mothertongue}
+                onChange={(e) => setValue("mothertongue", e.target.value)}
+                className={cls("mothertongue")}
+              />
+            </Field>
+            <Field id="reg-secLang" label="Second Language">
+              <input
+                id="reg-secLang"
+                value={values.secLang}
+                onChange={(e) => setValue("secLang", e.target.value)}
+                className={inputClasses}
+              />
+            </Field>
+            <Field id="reg-adharId" label="Aadhaar No" error={errors.adharId}>
+              <input
+                id="reg-adharId"
+                inputMode="numeric"
+                placeholder="12 digits"
+                value={values.adharId}
+                onChange={(e) => setValue("adharId", digitsOnly(e.target.value, 12))}
+                className={cls("adharId")}
+              />
+            </Field>
+            <Field id="reg-penno" label="PEN No">
+              <input
+                id="reg-penno"
+                value={values.penno}
+                onChange={(e) => setValue("penno", e.target.value)}
+                className={inputClasses}
+              />
+            </Field>
+          </div>
+        </section>
+
+        {/* Contact */}
+        <section className="space-y-4">
+          <SectionHeading>Contact Details</SectionHeading>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Field id="reg-mob1" label="Mobile 1" required error={errors.mob1}>
+              <input
+                id="reg-mob1"
+                inputMode="numeric"
+                placeholder="10 digits"
+                value={values.mob1}
+                onChange={(e) => setValue("mob1", digitsOnly(e.target.value, 10))}
+                className={cls("mob1")}
+              />
+            </Field>
+            <Field id="reg-mob2" label="Mobile 2" error={errors.mob2}>
+              <input
+                id="reg-mob2"
+                inputMode="numeric"
+                placeholder="10 digits"
+                value={values.mob2}
+                onChange={(e) => setValue("mob2", digitsOnly(e.target.value, 10))}
+                className={cls("mob2")}
+              />
+            </Field>
+            <Field id="reg-whatAppno" label="WhatsApp No" required error={errors.whatAppno}>
+              <input
+                id="reg-whatAppno"
+                inputMode="numeric"
+                placeholder="10 digits"
+                value={values.whatAppno}
+                onChange={(e) => setValue("whatAppno", digitsOnly(e.target.value, 10))}
+                className={cls("whatAppno")}
+              />
+            </Field>
+            <Field id="reg-email" label="Email" error={errors.email}>
+              <input
+                id="reg-email"
+                type="email"
+                value={values.email}
+                onChange={(e) => setValue("email", e.target.value)}
+                className={cls("email")}
+              />
+            </Field>
+          </div>
+        </section>
+
+        {/* Previous school */}
+        <section className="space-y-4">
+          <SectionHeading>Previous School Details</SectionHeading>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Field id="reg-lclass" label="Last Class">
+              <input
+                id="reg-lclass"
+                value={values.lclass}
+                onChange={(e) => setValue("lclass", e.target.value)}
+                className={inputClasses}
+              />
+            </Field>
+            <Field id="reg-lsch" label="Last School">
+              <input
+                id="reg-lsch"
+                value={values.lsch}
+                onChange={(e) => setValue("lsch", e.target.value)}
+                className={inputClasses}
+              />
+            </Field>
+            <Field id="reg-lper" label="Last School Percentage" error={errors.lper}>
+              <input
+                id="reg-lper"
+                inputMode="decimal"
+                value={values.lper}
+                onChange={(e) => setValue("lper", e.target.value)}
+                className={cls("lper")}
+              />
+            </Field>
+            <Field id="reg-lboard" label="Last School Board">
+              <input
+                id="reg-lboard"
+                value={values.lboard}
+                onChange={(e) => setValue("lboard", e.target.value)}
+                className={inputClasses}
+              />
+            </Field>
+          </div>
+        </section>
+
+        {/* Admission */}
+        <section className="space-y-4">
+          <SectionHeading>Admission Details</SectionHeading>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Field id="reg-classApplyfor" label="Class Applying For">
+              <input
+                id="reg-classApplyfor"
+                placeholder="e.g. Class 6"
+                value={values.classApplyfor}
+                onChange={(e) => setValue("classApplyfor", e.target.value)}
+                className={inputClasses}
+              />
+            </Field>
+          </div>
+        </section>
+
+        <div className="space-y-3">
+          {submitError && (
+            <p role="alert" className="rounded-md bg-red-50 px-3.5 py-2 text-sm text-red-600">
+              {submitError}
+            </p>
+          )}
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="flex items-center justify-center gap-1.5 rounded-md bg-marigold px-4 py-2 text-sm font-medium text-chalkboard transition hover:bg-marigold-dark disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <UserPlus size={15} />
+            {isSubmitting ? "Saving…" : "Save Registration"}
+          </button>
+        </div>
+      </form>
+    </SectionCard>
+  );
+}
+
+function NewRegistrationPage() {
+  const { selectedSchool } = useSelectedSchool();
 
   return (
     <div className="space-y-6">
       <div>
         <p className="text-sm font-medium text-marigold-dark">Student Management · Registration</p>
         <h1 className="mt-1 font-display text-2xl text-ink">New Registration</h1>
+        {selectedSchool && (
+          <p className="mt-1 flex items-center gap-1.5 text-sm text-ink-soft">
+            <School size={14} className="text-marigold-dark" />
+            {selectedSchool.name}
+          </p>
+        )}
       </div>
 
-      <SectionCard title="Student Registration" icon={UserPlus}>
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Registration No / Session strip, always visible above the tabs */}
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="space-y-1">
-              <label className={labelClasses}>Registration No</label>
-              <input value="Auto-generated on save" readOnly className={`${inputClasses} cursor-not-allowed bg-chalk/60 text-ink-soft`} />
-            </div>
-            <div className="space-y-1">
-              <label htmlFor="reg-session" className={labelClasses}>Session</label>
-              <input
-                id="reg-session"
-                value={basic.session}
-                onChange={(e) => updateBasic("session", e.target.value)}
-                className={inputClasses}
-              />
-            </div>
-            <div className="space-y-1">
-              <label htmlFor="reg-date" className={labelClasses}>Registration Date</label>
-              <input
-                id="reg-date"
-                type="date"
-                value={basic.registrationDate}
-                onChange={(e) => updateBasic("registrationDate", e.target.value)}
-                className={inputClasses}
-              />
-            </div>
-          </div>
-
-          {/* Tabs */}
-          <div className="flex flex-wrap gap-1 border-b border-line">
-            {TABS.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`rounded-t-md px-4 py-2 text-sm font-medium transition-colors ${
-                  activeTab === tab.id
-                    ? "border border-b-0 border-line bg-white text-marigold-dark"
-                    : "text-ink-soft hover:text-ink"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {activeTab === "basic" && (
-            <div className="space-y-4">
-              <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <label htmlFor="studentName" className={requiredLabelClasses}>Student Name</label>
-                    <input
-                      id="studentName"
-                      value={basic.studentName}
-                      onChange={(e) => updateBasic("studentName", e.target.value)}
-                      className={inputClasses}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label htmlFor="fatherName" className={labelClasses}>Father's Name</label>
-                    <input
-                      id="fatherName"
-                      value={basic.fatherName}
-                      onChange={(e) => updateBasic("fatherName", e.target.value)}
-                      className={inputClasses}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label htmlFor="motherName" className={labelClasses}>Mother's Name</label>
-                    <input
-                      id="motherName"
-                      value={basic.motherName}
-                      onChange={(e) => updateBasic("motherName", e.target.value)}
-                      className={inputClasses}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label htmlFor="guardianName" className={labelClasses}>Guardian's Name</label>
-                    <input
-                      id="guardianName"
-                      value={basic.guardianName}
-                      onChange={(e) => updateBasic("guardianName", e.target.value)}
-                      className={inputClasses}
-                    />
-                  </div>
-                </div>
-
-                {/* Photo upload */}
-                <div className="flex flex-col items-center gap-2">
-                  <div className="flex h-24 w-24 items-center justify-center rounded-md border border-dashed border-line bg-chalk/60 text-ink-soft">
-                    <Camera size={22} />
-                  </div>
-                  <label className="cursor-pointer rounded-md border border-line bg-white px-3 py-1.5 text-xs font-medium text-ink-soft hover:bg-chalk">
-                    Upload Photo
-                    <input type="file" accept="image/*" className="hidden" />
-                  </label>
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className={labelClasses}>Gender</label>
-                <RadioGroup
-                  name="gender"
-                  value={basic.gender}
-                  onChange={(v) => updateBasic("gender", v)}
-                  options={[
-                    { value: "male", label: "Male" },
-                    { value: "female", label: "Female" },
-                    { value: "other", label: "Other" },
-                  ]}
-                />
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div className="space-y-1">
-                  <label htmlFor="dob" className={requiredLabelClasses}>Date of Birth</label>
-                  <input
-                    id="dob"
-                    type="date"
-                    value={basic.dob}
-                    onChange={(e) => updateBasic("dob", e.target.value)}
-                    className={inputClasses}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="age" className={labelClasses}>Age</label>
-                  <input
-                    id="age"
-                    value={basic.age}
-                    onChange={(e) => updateBasic("age", e.target.value)}
-                    placeholder="Auto / manual"
-                    className={inputClasses}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="classApplying" className={requiredLabelClasses}>Class Applying</label>
-                  <input
-                    id="classApplying"
-                    value={basic.classApplying}
-                    onChange={(e) => updateBasic("classApplying", e.target.value)}
-                    placeholder="e.g. Class 6"
-                    className={inputClasses}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className={labelClasses}>Category</label>
-                <RadioGroup
-                  name="category"
-                  value={basic.category}
-                  onChange={(v) => updateBasic("category", v)}
-                  options={[
-                    { value: "general", label: "General" },
-                    { value: "obc", label: "OBC" },
-                    { value: "sc", label: "SC" },
-                    { value: "st", label: "ST" },
-                    { value: "ewc", label: "EWC" },
-                    { value: "ph", label: "PH" },
-                  ]}
-                />
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div className="space-y-1">
-                  <label htmlFor="nationality" className={labelClasses}>Nationality</label>
-                  <input
-                    id="nationality"
-                    value={basic.nationality}
-                    onChange={(e) => updateBasic("nationality", e.target.value)}
-                    className={inputClasses}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="religion" className={labelClasses}>Religion</label>
-                  <input
-                    id="religion"
-                    value={basic.religion}
-                    onChange={(e) => updateBasic("religion", e.target.value)}
-                    className={inputClasses}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="subReligion" className={labelClasses}>Sub-Religion</label>
-                  <input
-                    id="subReligion"
-                    value={basic.subReligion}
-                    onChange={(e) => updateBasic("subReligion", e.target.value)}
-                    className={inputClasses}
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="space-y-1">
-                  <label htmlFor="mobile1" className={labelClasses}>Mobile No (1st)</label>
-                  <input
-                    id="mobile1"
-                    inputMode="tel"
-                    value={basic.mobile1}
-                    onChange={(e) => updateBasic("mobile1", e.target.value)}
-                    className={inputClasses}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="mobile2" className={labelClasses}>Mobile No (2nd)</label>
-                  <input
-                    id="mobile2"
-                    inputMode="tel"
-                    value={basic.mobile2}
-                    onChange={(e) => updateBasic("mobile2", e.target.value)}
-                    className={inputClasses}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="email" className={labelClasses}>Email</label>
-                  <input
-                    id="email"
-                    type="email"
-                    value={basic.email}
-                    onChange={(e) => updateBasic("email", e.target.value)}
-                    className={inputClasses}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="whatsappNo" className={labelClasses}>Whatsapp No</label>
-                  <input
-                    id="whatsappNo"
-                    inputMode="tel"
-                    value={basic.whatsappNo}
-                    onChange={(e) => updateBasic("whatsappNo", e.target.value)}
-                    className={inputClasses}
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <div className="space-y-1">
-                  <label htmlFor="motherTongue" className={labelClasses}>Mother Tongue</label>
-                  <input
-                    id="motherTongue"
-                    value={basic.motherTongue}
-                    onChange={(e) => updateBasic("motherTongue", e.target.value)}
-                    className={inputClasses}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="secondLanguage" className={labelClasses}>2nd Language</label>
-                  <input
-                    id="secondLanguage"
-                    value={basic.secondLanguage}
-                    onChange={(e) => updateBasic("secondLanguage", e.target.value)}
-                    className={inputClasses}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="thirdLanguage" className={labelClasses}>3rd Language</label>
-                  <input
-                    id="thirdLanguage"
-                    value={basic.thirdLanguage}
-                    onChange={(e) => updateBasic("thirdLanguage", e.target.value)}
-                    className={inputClasses}
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <div className="space-y-1">
-                  <label htmlFor="transportMode" className={labelClasses}>Transport Mode</label>
-                  <select
-                    id="transportMode"
-                    value={basic.transportMode}
-                    onChange={(e) => updateBasic("transportMode", e.target.value)}
-                    className={inputClasses}
-                  >
-                    <option value="self">Self</option>
-                    <option value="school-transport">School Transport</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="medicalHistory" className={labelClasses}>Medical History</label>
-                  <input
-                    id="medicalHistory"
-                    value={basic.medicalHistory}
-                    onChange={(e) => updateBasic("medicalHistory", e.target.value)}
-                    placeholder="None"
-                    className={inputClasses}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="teachersWard" className={labelClasses}>Teacher's Ward</label>
-                  <select
-                    id="teachersWard"
-                    value={basic.teachersWard}
-                    onChange={(e) => updateBasic("teachersWard", e.target.value)}
-                    className={inputClasses}
-                  >
-                    <option value="no">No</option>
-                    <option value="yes">Yes</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div className="space-y-1">
-                  <label htmlFor="aadhaarNo" className={labelClasses}>Aadhaar No</label>
-                  <input
-                    id="aadhaarNo"
-                    value={basic.aadhaarNo}
-                    onChange={(e) => updateBasic("aadhaarNo", e.target.value)}
-                    className={inputClasses}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="satsNo" className={labelClasses}>SATS No</label>
-                  <input
-                    id="satsNo"
-                    value={basic.satsNo}
-                    onChange={(e) => updateBasic("satsNo", e.target.value)}
-                    className={inputClasses}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="penNo" className={labelClasses}>PEN No</label>
-                  <input
-                    id="penNo"
-                    value={basic.penNo}
-                    onChange={(e) => updateBasic("penNo", e.target.value)}
-                    className={inputClasses}
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-6">
-                <label className="flex items-center gap-1.5 text-sm text-ink">
-                  <input
-                    type="checkbox"
-                    checked={basic.onlyChild}
-                    onChange={(e) => updateBasic("onlyChild", e.target.checked)}
-                    className="h-3.5 w-3.5 accent-marigold"
-                  />
-                  Only Child
-                </label>
-                <RadioGroup
-                  name="studentType"
-                  value={basic.studentType}
-                  onChange={(v) => updateBasic("studentType", v)}
-                  options={[
-                    { value: "dayscholar", label: "Day Scholar" },
-                    { value: "boarder", label: "Boarder" },
-                  ]}
-                />
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <div className="space-y-1">
-                  <label htmlFor="lastClass" className={labelClasses}>Last Class</label>
-                  <input
-                    id="lastClass"
-                    value={basic.lastClass}
-                    onChange={(e) => updateBasic("lastClass", e.target.value)}
-                    className={inputClasses}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="lastSchool" className={labelClasses}>Last School</label>
-                  <input
-                    id="lastSchool"
-                    value={basic.lastSchool}
-                    onChange={(e) => updateBasic("lastSchool", e.target.value)}
-                    className={inputClasses}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="lastSchoolPercent" className={labelClasses}>Last School %</label>
-                  <input
-                    id="lastSchoolPercent"
-                    value={basic.lastSchoolPercent}
-                    onChange={(e) => updateBasic("lastSchoolPercent", e.target.value)}
-                    className={inputClasses}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="lastSchoolTc" className={labelClasses}>Last School TC No</label>
-                  <input
-                    id="lastSchoolTc"
-                    value={basic.lastSchoolTc}
-                    onChange={(e) => updateBasic("lastSchoolTc", e.target.value)}
-                    className={inputClasses}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="lastSchoolBoard" className={labelClasses}>Last School Board</label>
-                  <input
-                    id="lastSchoolBoard"
-                    value={basic.lastSchoolBoard}
-                    onChange={(e) => updateBasic("lastSchoolBoard", e.target.value)}
-                    className={inputClasses}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === "personal" && (
-            <div className="space-y-4">
-              <p className="text-sm font-medium text-ink">Father's Details</p>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <div className="space-y-1">
-                  <label htmlFor="fatherOccupation" className={labelClasses}>Occupation</label>
-                  <input id="fatherOccupation" value={personal.fatherOccupation} onChange={(e) => updatePersonal("fatherOccupation", e.target.value)} className={inputClasses} />
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="fatherQualification" className={labelClasses}>Qualification</label>
-                  <input id="fatherQualification" value={personal.fatherQualification} onChange={(e) => updatePersonal("fatherQualification", e.target.value)} className={inputClasses} />
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="fatherMobile" className={labelClasses}>Mobile</label>
-                  <input id="fatherMobile" inputMode="tel" value={personal.fatherMobile} onChange={(e) => updatePersonal("fatherMobile", e.target.value)} className={inputClasses} />
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="fatherEmail" className={labelClasses}>Email</label>
-                  <input id="fatherEmail" type="email" value={personal.fatherEmail} onChange={(e) => updatePersonal("fatherEmail", e.target.value)} className={inputClasses} />
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="fatherAadhaar" className={labelClasses}>Aadhaar No</label>
-                  <input id="fatherAadhaar" value={personal.fatherAadhaar} onChange={(e) => updatePersonal("fatherAadhaar", e.target.value)} className={inputClasses} />
-                </div>
-              </div>
-
-              <p className="pt-2 text-sm font-medium text-ink">Mother's Details</p>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <div className="space-y-1">
-                  <label htmlFor="motherOccupation" className={labelClasses}>Occupation</label>
-                  <input id="motherOccupation" value={personal.motherOccupation} onChange={(e) => updatePersonal("motherOccupation", e.target.value)} className={inputClasses} />
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="motherQualification" className={labelClasses}>Qualification</label>
-                  <input id="motherQualification" value={personal.motherQualification} onChange={(e) => updatePersonal("motherQualification", e.target.value)} className={inputClasses} />
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="motherMobile" className={labelClasses}>Mobile</label>
-                  <input id="motherMobile" inputMode="tel" value={personal.motherMobile} onChange={(e) => updatePersonal("motherMobile", e.target.value)} className={inputClasses} />
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="motherEmail" className={labelClasses}>Email</label>
-                  <input id="motherEmail" type="email" value={personal.motherEmail} onChange={(e) => updatePersonal("motherEmail", e.target.value)} className={inputClasses} />
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="motherAadhaar" className={labelClasses}>Aadhaar No</label>
-                  <input id="motherAadhaar" value={personal.motherAadhaar} onChange={(e) => updatePersonal("motherAadhaar", e.target.value)} className={inputClasses} />
-                </div>
-              </div>
-
-              <p className="pt-2 text-sm font-medium text-ink">Guardian & Other Details</p>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="space-y-1">
-                  <label htmlFor="guardianRelation" className={labelClasses}>Relation with Student</label>
-                  <input id="guardianRelation" value={personal.guardianRelation} onChange={(e) => updatePersonal("guardianRelation", e.target.value)} className={inputClasses} />
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="guardianMobile" className={labelClasses}>Guardian Mobile</label>
-                  <input id="guardianMobile" inputMode="tel" value={personal.guardianMobile} onChange={(e) => updatePersonal("guardianMobile", e.target.value)} className={inputClasses} />
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="annualIncome" className={labelClasses}>Annual Family Income</label>
-                  <input id="annualIncome" value={personal.annualIncome} onChange={(e) => updatePersonal("annualIncome", e.target.value)} className={inputClasses} />
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="bloodGroup" className={labelClasses}>Blood Group</label>
-                  <input id="bloodGroup" value={personal.bloodGroup} onChange={(e) => updatePersonal("bloodGroup", e.target.value)} className={inputClasses} />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === "address" && (
-            <div className="space-y-4">
-              <p className="text-sm font-medium text-ink">Current Address</p>
-              <div className="space-y-1">
-                <label htmlFor="currentAddress" className={labelClasses}>Address</label>
-                <textarea
-                  id="currentAddress"
-                  rows={2}
-                  value={address.currentAddress}
-                  onChange={(e) => updateAddress("currentAddress", e.target.value)}
-                  className={inputClasses}
-                />
-              </div>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div className="space-y-1">
-                  <label htmlFor="currentCity" className={labelClasses}>City</label>
-                  <input id="currentCity" value={address.currentCity} onChange={(e) => updateAddress("currentCity", e.target.value)} className={inputClasses} />
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="currentState" className={labelClasses}>State</label>
-                  <input id="currentState" value={address.currentState} onChange={(e) => updateAddress("currentState", e.target.value)} className={inputClasses} />
-                </div>
-                <div className="space-y-1">
-                  <label htmlFor="currentPincode" className={labelClasses}>Pincode</label>
-                  <input id="currentPincode" value={address.currentPincode} onChange={(e) => updateAddress("currentPincode", e.target.value)} className={inputClasses} />
-                </div>
-              </div>
-
-              <label className="flex items-center gap-1.5 text-sm text-ink">
-                <input
-                  type="checkbox"
-                  checked={address.sameAsCurrent}
-                  onChange={(e) => updateAddress("sameAsCurrent", e.target.checked)}
-                  className="h-3.5 w-3.5 accent-marigold"
-                />
-                Permanent address same as current
-              </label>
-
-              {!address.sameAsCurrent && (
-                <div className="space-y-4 rounded-md border border-line bg-chalk/40 p-4">
-                  <p className="text-sm font-medium text-ink">Permanent Address</p>
-                  <div className="space-y-1">
-                    <label htmlFor="permanentAddress" className={labelClasses}>Address</label>
-                    <textarea
-                      id="permanentAddress"
-                      rows={2}
-                      value={address.permanentAddress}
-                      onChange={(e) => updateAddress("permanentAddress", e.target.value)}
-                      className={inputClasses}
-                    />
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <div className="space-y-1">
-                      <label htmlFor="permanentCity" className={labelClasses}>City</label>
-                      <input id="permanentCity" value={address.permanentCity} onChange={(e) => updateAddress("permanentCity", e.target.value)} className={inputClasses} />
-                    </div>
-                    <div className="space-y-1">
-                      <label htmlFor="permanentState" className={labelClasses}>State</label>
-                      <input id="permanentState" value={address.permanentState} onChange={(e) => updateAddress("permanentState", e.target.value)} className={inputClasses} />
-                    </div>
-                    <div className="space-y-1">
-                      <label htmlFor="permanentPincode" className={labelClasses}>Pincode</label>
-                      <input id="permanentPincode" value={address.permanentPincode} onChange={(e) => updateAddress("permanentPincode", e.target.value)} className={inputClasses} />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <p className="pt-2 text-sm font-medium text-ink">Documents</p>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {DOCUMENT_SLOTS.map((doc) => (
-                  <div key={doc} className="space-y-1">
-                    <label className={labelClasses}>{doc}</label>
-                    <input type="file" className={`${inputClasses} cursor-pointer py-1.5 file:mr-3 file:rounded file:border-0 file:bg-chalk file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-ink-soft`} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="flex flex-wrap items-center gap-5 border-t border-line pt-4">
-            <label className="flex items-center gap-1.5 text-sm text-ink-soft">
-              <input type="checkbox" className="h-3.5 w-3.5 accent-marigold" />
-              <MessageSquare size={14} /> SMS
-            </label>
-            <label className="flex items-center gap-1.5 text-sm text-ink-soft">
-              <input type="checkbox" className="h-3.5 w-3.5 accent-marigold" />
-              WhatsApp
-            </label>
-            <label className="flex items-center gap-1.5 text-sm text-ink-soft">
-              <input type="checkbox" className="h-3.5 w-3.5 accent-marigold" />
-              <Mail size={14} /> Email
-            </label>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              type="submit"
-              disabled={!canSubmit}
-              className="flex items-center justify-center gap-1.5 rounded-md bg-marigold px-4 py-2 text-sm font-medium text-chalkboard transition hover:bg-marigold-dark disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <UserPlus size={15} />
-              Save Registration
-            </button>
-            {savedMessage && <p className="text-xs text-ink-soft">{savedMessage}</p>}
-          </div>
-        </form>
-      </SectionCard>
+      {selectedSchool ? (
+        <RegistrationForm
+          key={selectedSchool.id}
+          schId={selectedSchool.id}
+          schCode={selectedSchool.schoolCode}
+        />
+      ) : (
+        <div className="rounded-lg border border-dashed border-line bg-white px-5 py-10 text-center">
+          <School size={28} className="mx-auto text-marigold-dark" />
+          <p className="mt-3 font-display text-lg text-ink">No school selected</p>
+          <p className="mt-1 text-sm text-ink-soft">
+            Use the settings icon at the top right to select a school first.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

@@ -3,14 +3,16 @@ import { ApiError, type ApiErrorResponse } from "../types/api.types";
 import { getStoredToken } from "./tokenStorage";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-type BodyType = "json" | "form";
+type BodyType = "json" | "form" | "multipart";
 
 interface RequestOptions {
   method?: HttpMethod;
   body?: unknown;
   /** "json" (default) sends body as JSON. "form" sends it as
    *  application/x-www-form-urlencoded — some backend endpoints
-   *  (state/city, class/section) expect this instead of JSON. */
+   *  (state/city, class/section) expect this instead of JSON.
+   *  "multipart" expects `body` to be a FormData (file uploads); the browser
+   *  sets the Content-Type header itself, including the multipart boundary. */
   bodyType?: BodyType;
   headers?: Record<string, string>;
   /** Attach the stored access token as a Bearer header. Defaults to true. */
@@ -56,7 +58,7 @@ export async function apiRequest<TResponse>(
 
   const requestHeaders: Record<string, string> = {
     Accept: "application/json",
-    ...(body !== undefined
+    ...(body !== undefined && bodyType !== "multipart"
       ? {
           "Content-Type":
             bodyType === "form"
@@ -81,11 +83,13 @@ export async function apiRequest<TResponse>(
       method,
       headers: requestHeaders,
       body:
-        body !== undefined
-          ? bodyType === "form"
-            ? encodeFormBody(body)
-            : JSON.stringify(body)
-          : undefined,
+        body === undefined
+          ? undefined
+          : bodyType === "multipart"
+            ? (body as FormData)
+            : bodyType === "form"
+              ? encodeFormBody(body)
+              : JSON.stringify(body),
       signal: controller.signal,
     });
   } catch (error) {

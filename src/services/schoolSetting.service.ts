@@ -1,5 +1,6 @@
 import { apiRequest } from "../lib/httpClient";
 import type { ApiAckResponse } from "../types/api.types";
+import type { CreateNewRegistrationResponse } from "../types/studentRegistration.types";
 import type {
   CreateSchClassRequest,
   GetSchClassesResponse,
@@ -8,6 +9,17 @@ import type {
 } from "../types/superadmin.types";
 
 export const schoolSettingService = {
+  // ---- Student Management: New Registration (multipart: fields + `Image` file) ----
+  createNewRegistration(formData: FormData) {
+    return apiRequest<CreateNewRegistrationResponse>("/school-settings/new-registration", {
+      method: "POST",
+      body: formData,
+      bodyType: "multipart",
+      timeoutMs: 30_000, // photo upload can be slower than a normal JSON call
+    });
+  },
+
+
   // ---- Class/Section Setup (maps a global Class+Section to a School) ----
   createSchClass(payload: CreateSchClassRequest) {
     return apiRequest<ApiAckResponse>("/school-settings/create-sch-class", {
