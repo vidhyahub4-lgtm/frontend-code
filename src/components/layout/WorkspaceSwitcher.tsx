@@ -5,6 +5,7 @@ import { useSelectedSession } from "../../hooks/useSelectedSession";
 import { superAdminService } from "../../services/superadmin.service";
 import { ApiError } from "../../types/api.types";
 import type { School, Session } from "../../types/superadmin.types";
+import type { SelectedSchool } from "../../lib/selectedSchool";
 
 /** Show a search box only when the list is long enough to need one. */
 const SEARCH_THRESHOLD = 6;
@@ -12,7 +13,11 @@ const SEARCH_THRESHOLD = 6;
 /**
  * Settings (gear) button + dropdown that lets a superAdmin pick the school
  * AND the session they are working in. Render it only for superAdmins
- * (Topbar handles that). Nothing is auto-selected: the user must choose.
+ * (Topbar handles that).
+ *
+ * Picks are held as a local "draft" and only written to localStorage when
+ * the user presses Save; closing the panel discards the draft.
+ * Nothing is auto-selected: the user must choose.
  */
 export function WorkspaceSwitcher() {
   const { selectedSchool, selectSchool } = useSelectedSchool();
@@ -25,6 +30,8 @@ export function WorkspaceSwitcher() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
+  const [draftSchool, setDraftSchool] = useState<SelectedSchool | null>(null);
+  const [draftSessionId, setDraftSessionId] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Close on outside click or Escape.
@@ -74,6 +81,9 @@ export function WorkspaceSwitcher() {
 
   function handleToggle() {
     if (!isOpen) {
+      // Start the draft from what is currently saved
+      setDraftSchool(selectedSchool);
+      setDraftSessionId(selectedSession?.id ?? "");
       setQuery("");
       loadSchools();
       loadSessions();
@@ -81,14 +91,25 @@ export function WorkspaceSwitcher() {
     setIsOpen((open) => !open);
   }
 
-  // Schools/sessions are chosen independently, so the panel stays open after
-  // a pick — the user usually needs to set both.
   function handleSelectSchool(school: School) {
-    selectSchool({ id: school._id, name: school.schName, schoolCode: school.schoolCode });
+    setDraftSchool({ id: school._id, name: school.schName, schoolCode: school.schoolCode });
   }
 
-  function handleSelectSession(session: Session) {
-    selectSession({ id: session._id, name: session.session });
+  // Both must be chosen, and something must differ from what is saved.
+  const canSave =
+    Boolean(draftSchool && draftSessionId) &&
+    (draftSchool?.id !== selectedSchool?.id || draftSessionId !== selectedSession?.id);
+
+  function handleSave() {
+    if (!draftSchool || !draftSessionId) return;
+
+    const picked = sessions.find((session) => session._id === draftSessionId);
+    const name = picked?.session ?? (selectedSession?.id === draftSessionId ? selectedSession.name : null);
+    if (!name) return;
+
+    selectSchool(draftSchool);
+    selectSession({ id: draftSessionId, name });
+    setIsOpen(false);
   }
 
   const normalizedQuery = query.trim().toLowerCase();
@@ -178,7 +199,7 @@ export function WorkspaceSwitcher() {
             )}
 
             {visibleSchools.map((school) => {
-              const isSelected = school._id === selectedSchool?.id;
+              const isSelected = school._id === draftSchool?.id;
               return (
                 <button
                   key={school._id}
@@ -240,11 +261,8 @@ export function WorkspaceSwitcher() {
 
             <select
               aria-label="Session"
-              value={selectedSession?.id ?? ""}
-              onChange={(e) => {
-                const picked = sessions.find((session) => session._id === e.target.value);
-                if (picked) handleSelectSession(picked);
-              }}
+              value={draftSessionId}
+              onChange={(e) => setDraftSessionId(e.target.value)}
               disabled={sessionsLoading && sessions.length === 0}
               className="mt-2 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-marigold/40"
             >
@@ -252,15 +270,33 @@ export function WorkspaceSwitcher() {
                 Select a session
               </option>
               {/* Keep the saved choice visible even before the list has loaded */}
-              {selectedSession && !sessions.some((s) => s._id === selectedSession.id) && (
-                <option value={selectedSession.id}>{selectedSession.name}</option>
-              )}
+              {selectedSession &&
+                selectedSession.id === draftSessionId &&
+                !sessions.some((s) => s._id === selectedSession.id) && (
+                  <option value={selectedSession.id}>{selectedSession.name}</option>
+                )}
               {sessions.map((session) => (
                 <option key={session._id} value={session._id}>
                   {session.session}
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="flex items-center justify-between gap-3 border-t border-line bg-paper px-4 py-3">
+            <p className="text-xs text-ink-soft">
+              {draftSchool && draftSessionId
+                ? "Save to apply your selection."
+                : "Select a school and a session."}
+            </p>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!canSave}
+              className="shrink-0 rounded-md bg-marigold px-4 py-1.5 text-sm font-medium text-chalkboard transition hover:bg-marigold-dark disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Save
+            </button>
           </div>
         </div>
       )}
