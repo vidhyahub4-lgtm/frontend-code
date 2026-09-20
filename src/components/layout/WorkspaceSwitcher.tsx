@@ -238,28 +238,29 @@ export function WorkspaceSwitcher() {
               <p className="mt-2 text-sm text-ink-soft">No sessions created yet.</p>
             )}
 
-            <div role="listbox" aria-label="Sessions" className="mt-2 flex flex-wrap gap-2">
-              {sessions.map((session) => {
-                const isSelected = session._id === selectedSession?.id;
-                return (
-                  <button
-                    key={session._id}
-                    type="button"
-                    role="option"
-                    aria-selected={isSelected}
-                    onClick={() => handleSelectSession(session)}
-                    className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition ${
-                      isSelected
-                        ? "border-marigold bg-marigold/15 font-medium text-ink"
-                        : "border-line bg-white text-ink-soft hover:bg-chalk"
-                    }`}
-                  >
-                    {isSelected && <Check size={13} className="text-marigold-dark" />}
-                    {session.session}
-                  </button>
-                );
-              })}
-            </div>
+            <select
+              aria-label="Session"
+              value={selectedSession?.id ?? ""}
+              onChange={(e) => {
+                const picked = sessions.find((session) => session._id === e.target.value);
+                if (picked) handleSelectSession(picked);
+              }}
+              disabled={sessionsLoading && sessions.length === 0}
+              className="mt-2 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-marigold/40"
+            >
+              <option value="" disabled>
+                Select a session
+              </option>
+              {/* Keep the saved choice visible even before the list has loaded */}
+              {selectedSession && !sessions.some((s) => s._id === selectedSession.id) && (
+                <option value={selectedSession.id}>{selectedSession.name}</option>
+              )}
+              {sessions.map((session) => (
+                <option key={session._id} value={session._id}>
+                  {session.session}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       )}
