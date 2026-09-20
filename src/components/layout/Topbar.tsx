@@ -2,7 +2,8 @@ import { LogOut, Menu, School } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useSelectedSchool } from "../../hooks/useSelectedSchool";
-import { SchoolSwitcher } from "./SchoolSwitcher";
+import { useSelectedSession } from "../../hooks/useSelectedSession";
+import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
 interface TopbarProps {
   onMenuClick: () => void;
@@ -12,6 +13,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { selectedSchool } = useSelectedSchool();
+  const { selectedSession } = useSelectedSession();
   const isSuperAdmin = user?.userType === "superAdmin";
 
   function handleLogout() {
@@ -32,7 +34,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
         <Menu size={22} />
       </button>
 
-      {/* Currently selected school (superAdmin only) */}
+      {/* Currently selected school + session (superAdmin only) */}
       {isSuperAdmin ? (
         <div className="flex min-w-0 items-center gap-2 rounded-full border border-line bg-white px-3 py-1 text-xs">
           <School size={14} className="shrink-0 text-marigold-dark" />
@@ -43,13 +45,19 @@ export function Topbar({ onMenuClick }: TopbarProps) {
               <span className="text-ink-soft">No school selected</span>
             )}
           </span>
+          <span className="h-3 w-px shrink-0 bg-line" />
+          {selectedSession ? (
+            <span className="shrink-0 font-medium text-ink">{selectedSession.name}</span>
+          ) : (
+            <span className="shrink-0 text-ink-soft">No session</span>
+          )}
         </div>
       ) : (
         <div className="hidden lg:block" />
       )}
 
       <div className="flex items-center gap-3">
-        {isSuperAdmin && <SchoolSwitcher />}
+        {isSuperAdmin && <WorkspaceSwitcher />}
         {user && (
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-chalkboard text-xs font-semibold text-chalk">

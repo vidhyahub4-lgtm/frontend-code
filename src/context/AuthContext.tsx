@@ -8,6 +8,7 @@ import {
 } from "react";
 import type { AuthUser, LoginResponse, SidebarItem } from "../types/auth.types";
 import { clearStoredSelectedSchool } from "../lib/selectedSchool";
+import { clearStoredSelectedSession } from "../lib/selectedSession";
 import { clearStoredToken, getStoredToken, setStoredToken } from "../lib/tokenStorage";
 
 const USER_KEY = "vidyahub_user";
@@ -62,7 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearStoredToken();
     localStorage.removeItem(USER_KEY);
     localStorage.removeItem(SIDEBAR_KEY);
-    clearStoredSelectedSchool(); // selected school belongs to this session only
+    clearStoredSelectedSchool(); // selections belong to this login only
+    clearStoredSelectedSession();
 
     setToken(null);
     setUser(null);
