@@ -1,5 +1,6 @@
 import { env } from "../config/env";
 import { ApiError, type ApiErrorResponse } from "../types/api.types";
+import { notifyUnauthorized } from "./authEvents";
 import { getStoredToken } from "./tokenStorage";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -110,6 +111,11 @@ export async function apiRequest<TResponse>(
   const payload = isJson ? await response.json().catch(() => null) : null;
 
   if (!response.ok) {
+    // 401 on an authenticated call = expired/invalid token. Tell AuthContext
+    // so it can log the user out (login itself uses auth:false, so a wrong
+    // password does not trigger this).
+    if (response.status === 401 && auth) notifyUnauthorized();
+
     const errorPayload = payload as ApiErrorResponse | null;
     throw new ApiError(
       errorPayload?.message || `Request failed with status ${response.status}`,

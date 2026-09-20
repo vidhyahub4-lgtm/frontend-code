@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { clearSessionExpiry, peekSessionExpiry } from "../lib/sessionExpiry";
 import { authService } from "../services/auth.service";
 import { ApiError } from "../types/api.types";
 
@@ -13,6 +14,9 @@ interface FormErrors {
 function LoginPage() {
   const navigate = useNavigate();
   const { login } = useAuth();
+
+  // Set when the user was logged out because their session expired.
+  const [expiry] = useState(() => peekSessionExpiry());
 
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -63,7 +67,9 @@ function LoginPage() {
       });
 
       login(response);
-      navigate("/dashboard");
+      clearSessionExpiry();
+      // Return to the page they were on when the session expired, if any.
+      navigate(expiry?.returnTo ?? "/dashboard", { replace: true });
     } catch (error) {
       const message =
         error instanceof ApiError
@@ -187,6 +193,15 @@ function LoginPage() {
                 Forgot password?
               </a>
             </div>
+
+            {expiry && !formError && (
+              <p
+                role="status"
+                className="rounded-md bg-amber-50 px-3.5 py-2 text-sm text-amber-800"
+              >
+                Your session expired. Please log in again.
+              </p>
+            )}
 
             {formError && (
               <p
