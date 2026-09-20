@@ -200,7 +200,7 @@ function LateFinePage() {
                 </option>
                 {schClasses.map((sc) => (
                   <option key={sc._id} value={sc._id}>
-                    {sc.classID?.className} - {sc.sectionID?.sectionName}
+                    {sc.classID?.className} - {(sc.sectionID ?? []).map((s) => s.sectionName).join(", ")}
                   </option>
                 ))}
               </select>
@@ -296,7 +296,7 @@ function LateFinePage() {
               {
                 header: "Class",
                 render: (item) =>
-                  `${item.class?.classID?.className ?? "—"} - ${item.class?.sectionID?.sectionName ?? "—"}`,
+                  `${item.class?.classID?.className ?? "—"} - ${item.class?.sectionID?.map((s) => s.sectionName).join(", ") || "—"}`,
               },
               { header: "Installment", render: (item) => item.selectInstallemt },
               {

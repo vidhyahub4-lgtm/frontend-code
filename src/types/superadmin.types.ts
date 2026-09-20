@@ -365,7 +365,8 @@ export type LateFineType = (typeof LATE_FINE_TYPES)[number];
 export interface LateFineSetupClassRef {
   _id: string;
   classID: { _id: string; className: string; classInWord: string };
-  sectionID: { _id: string; sectionName: string };
+  /** All sections of this class (backend groups them in one document). */
+  sectionID: { _id: string; sectionName: string }[];
 }
 
 export interface LateFineSetup {
