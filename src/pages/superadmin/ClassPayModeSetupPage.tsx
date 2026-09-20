@@ -32,59 +32,177 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
+/** One month a class may be billed for. Unticked = no installment that month (e.g. holiday). */
+interface InstallmentSlot {
+  name: string;
+  active: boolean;
+}
+
 /** Per-class draft row while building a new session's fee structure. */
 interface DraftRow {
   classID: string;
   className: string;
   duration: string;
   payModeDuration: string;
-  installmentCount: number;
+  installmentSlots: InstallmentSlot[];
 }
 
-function buildInstallments(count: number): { id: number; installment: string }[] {
-  const n = Math.max(0, Math.min(12, count || 0));
-  return MONTHS.slice(0, n).map((m, i) => ({ id: i + 1, installment: m }));
+/** New rows start with every month ticked; the user unticks holidays. */
+function allMonthSlots(): InstallmentSlot[] {
+  return MONTHS.map((name) => ({ name, active: true }));
 }
 
-function InstallmentModal({
+/** Rebuild the tick state from installments already saved on the backend. */
+function slotsFromInstallments(existing: PayModeInstallment[]): InstallmentSlot[] {
+  const saved = new Set(existing.map((i) => i.installment.trim().toLowerCase()));
+  const months = MONTHS.map((name) => ({ name, active: saved.has(name.toLowerCase()) }));
+  // Keep any saved installment that isn't a plain month name, so it isn't lost.
+  const extras = existing
+    .filter((i) => !MONTHS.some((m) => m.toLowerCase() === i.installment.trim().toLowerCase()))
+    .map((i) => ({ name: i.installment, active: true }));
+  return [...months, ...extras];
+}
+
+function countActive(slots: InstallmentSlot[]): number {
+  return slots.filter((s) => s.active).length;
+}
+
+/** Ticked months -> API payload; ids are the installment numbers 1..n. */
+function buildInstallments(slots: InstallmentSlot[]): { id: number; installment: string }[] {
+  return slots.filter((s) => s.active).map((s, i) => ({ id: i + 1, installment: s.name }));
+}
+
+/** Popup to tick/untick the months a class pays installments for. */
+function InstallmentPickerModal({
   classLabel,
-  installments,
+  slots,
+  onSave,
   onClose,
 }: {
   classLabel: string;
-  installments: PayModeInstallment[];
+  slots: InstallmentSlot[];
+  onSave: (slots: InstallmentSlot[]) => void;
   onClose: () => void;
 }) {
+  const [draft, setDraft] = useState(slots);
+  const selected = countActive(draft);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  function toggle(index: number) {
+    setDraft((prev) => prev.map((slot, i) => (i === index ? { ...slot, active: !slot.active } : slot)));
+  }
+
+  function setAll(active: boolean) {
+    setDraft((prev) => prev.map((slot) => ({ ...slot, active })));
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-chalkboard/50 p-4">
-      <div className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-lg bg-white shadow-lg">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Installments for class ${classLabel}`}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-chalkboard/50 p-4"
+    >
+      <div className="flex max-h-[85vh] w-full max-w-md flex-col rounded-lg bg-white shadow-lg">
         <div className="flex items-center justify-between border-b border-line bg-marigold/10 px-5 py-3">
-          <h3 className="font-display text-base text-ink">
-            Class ({classLabel}) Pay Mode Installments
-          </h3>
-          <button onClick={onClose} className="text-ink-soft hover:text-ink">
+          <h3 className="font-display text-base text-ink">Class ({classLabel}) Installments</h3>
+          <button type="button" onClick={onClose} aria-label="Close" className="text-ink-soft hover:text-ink">
             <X size={18} />
           </button>
         </div>
-        <div className="p-4">
+
+        <div className="flex items-center justify-between px-5 pt-3 text-xs">
+          <span className="text-ink-soft">Untick a month to skip its installment (e.g. holiday).</span>
+          <span className="flex shrink-0 gap-3">
+            <button type="button" onClick={() => setAll(true)} className="font-medium text-marigold-dark hover:underline">
+              All
+            </button>
+            <button type="button" onClick={() => setAll(false)} className="font-medium text-marigold-dark hover:underline">
+              None
+            </button>
+          </span>
+        </div>
+
+        <div className="overflow-y-auto px-5 py-2">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-soft">
                 <th className="py-2 pr-4 font-medium">SlNo</th>
                 <th className="py-2 pr-4 font-medium">Installment</th>
+                <th className="py-2 pr-4 font-medium">Status</th>
+                <th className="py-2 text-center font-medium">Active</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
-              {installments.map((inst) => (
-                <tr key={inst.id}>
-                  <td className="py-2 pr-4">{inst.id}</td>
-                  <td className="py-2 pr-4">{inst.installment}</td>
+              {draft.map((slot, index) => (
+                <tr key={`${slot.name}-${index}`} className={slot.active ? "" : "text-ink-soft"}>
+                  <td className="py-2 pr-4">{index + 1}</td>
+                  <td className="py-2 pr-4 font-medium">{slot.name}</td>
+                  <td className="py-2 pr-4">{slot.active ? "Active" : "Inactive"}</td>
+                  <td className="py-2 text-center">
+                    <input
+                      type="checkbox"
+                      checked={slot.active}
+                      onChange={() => toggle(index)}
+                      aria-label={`${slot.name} installment`}
+                      className="h-4 w-4 accent-marigold"
+                    />
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-line px-5 py-3">
+          <span className={`text-xs ${selected === 0 ? "text-red-600" : "text-ink-soft"}`}>
+            {selected === 0 ? "Select at least one month" : `${selected} of ${draft.length} selected`}
+          </span>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md border border-line px-4 py-1.5 text-sm text-ink-soft hover:text-ink"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => onSave(draft)}
+              disabled={selected === 0}
+              className="rounded-md bg-marigold px-4 py-1.5 text-sm font-medium text-chalkboard transition hover:bg-marigold-dark disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Save
+            </button>
+          </div>
+        </div>
       </div>
+    </div>
+  );
+}
+
+/** "View Installment" button + how many months are ticked. */
+function InstallmentSummary({ slots, onView }: { slots: InstallmentSlot[]; onView: () => void }) {
+  const count = countActive(slots);
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={onView}
+        className="rounded-md border border-line px-3 py-1.5 text-xs text-ink-soft hover:border-marigold hover:text-marigold-dark"
+      >
+        View Installment
+      </button>
+      <span className={`text-xs ${count === 0 ? "text-red-600" : "text-ink-soft"}`}>
+        {count} selected
+      </span>
     </div>
   );
 }
@@ -96,21 +214,24 @@ function SetupEntryRow({
   entry,
   slNo,
   onSaved,
-  onViewInstallments,
 }: {
   setupId: string;
   entry: PayModeFeeStructureEntry;
   slNo: number;
   onSaved: () => void;
-  onViewInstallments: () => void;
 }) {
   const [duration, setDuration] = useState(entry.duration);
   const [payModeDuration, setPayModeDuration] = useState(entry.payModeDuration);
-  const [installmentCount, setInstallmentCount] = useState(entry.installment.length);
+  const [installmentSlots, setInstallmentSlots] = useState(() => slotsFromInstallments(entry.installment));
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleUpdate() {
+    if (countActive(installmentSlots) === 0) {
+      setError("Select at least one installment month.");
+      return;
+    }
     setIsSaving(true);
     setError(null);
     try {
@@ -119,7 +240,7 @@ function SetupEntryRow({
         entryId: entry._id ?? "",
         duration,
         payModeDuration,
-        installment: buildInstallments(installmentCount),
+        installment: buildInstallments(installmentSlots),
       });
       onSaved();
     } catch (err) {
@@ -152,14 +273,18 @@ function SetupEntryRow({
         </select>
       </td>
       <td className="py-2.5 pr-4">
-        <input
-          type="number"
-          min={0}
-          max={12}
-          value={installmentCount}
-          onChange={(e) => setInstallmentCount(Number(e.target.value))}
-          className={`${inputClasses} w-20`}
-        />
+        <InstallmentSummary slots={installmentSlots} onView={() => setPickerOpen(true)} />
+        {pickerOpen && (
+          <InstallmentPickerModal
+            classLabel={`${entry.class.classInWord} (${entry.class.className})`}
+            slots={installmentSlots}
+            onSave={(slots) => {
+              setInstallmentSlots(slots);
+              setPickerOpen(false);
+            }}
+            onClose={() => setPickerOpen(false)}
+          />
+        )}
       </td>
       <td className="py-2.5 pr-4">
         <button
@@ -170,16 +295,8 @@ function SetupEntryRow({
           {isSaving ? "Updating…" : "Update"}
         </button>
       </td>
-      <td className="py-2.5 pr-4">
-        <button
-          onClick={onViewInstallments}
-          className="rounded-md border border-line px-3 py-1.5 text-xs text-ink-soft hover:border-marigold hover:text-marigold-dark"
-        >
-          View Installment
-        </button>
-      </td>
       {error && (
-        <td className="py-2.5 pr-4 text-xs text-red-600" colSpan={2}>
+        <td className="py-2.5 pr-4 text-xs text-red-600">
           {error}
         </td>
       )}
@@ -219,7 +336,7 @@ function ClassPayModeSetupPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const [modal, setModal] = useState<{ classLabel: string; installments: PayModeInstallment[] } | null>(null);
+  const [pickerClassId, setPickerClassId] = useState<string | null>(null);
 
   const loadSetups = useCallback((forSchoolID: string) => {
     if (!forSchoolID) {
@@ -289,7 +406,7 @@ function ClassPayModeSetupPage() {
             className: `${c.classID.classInWord} (${c.classID.className})`,
             duration: DURATION_OPTIONS[0],
             payModeDuration: PAYMODE_DURATION_OPTIONS[0],
-            installmentCount: 0,
+            installmentSlots: allMonthSlots(),
           }))
         );
       })
@@ -311,7 +428,7 @@ function ClassPayModeSetupPage() {
         class: r.classID,
         duration: r.duration,
         payModeDuration: r.payModeDuration,
-        installment: buildInstallments(r.installmentCount),
+        installment: buildInstallments(r.installmentSlots),
       }));
 
       await superAdminService.createSchoolPayMode({
@@ -331,7 +448,9 @@ function ClassPayModeSetupPage() {
     }
   }
 
-  const canSave = Boolean(session.trim() && draftRows.length > 0 && draftRows.every((r) => r.installmentCount > 0));
+  const pickerRow = draftRows.find((r) => r.classID === pickerClassId);
+
+  const canSave = Boolean(session.trim() && draftRows.length > 0 && draftRows.every((r) => countActive(r.installmentSlots) > 0));
 
   return (
     <div>
@@ -392,7 +511,6 @@ function ClassPayModeSetupPage() {
                               <th className="py-2 pr-4 font-medium">PayMode Duration</th>
                               <th className="py-2 pr-4 font-medium">Installments</th>
                               <th className="py-2 pr-4 font-medium">Update</th>
-                              <th className="py-2 pr-4 font-medium">View</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-line">
@@ -403,12 +521,6 @@ function ClassPayModeSetupPage() {
                                 entry={fs}
                                 slNo={idx + 1}
                                 onSaved={() => loadSetups(schoolID)}
-                                onViewInstallments={() =>
-                                  setModal({
-                                    classLabel: `${fs.class.classInWord} (${fs.class.className})`,
-                                    installments: fs.installment,
-                                  })
-                                }
                               />
                             ))}
                           </tbody>
@@ -508,15 +620,9 @@ function ClassPayModeSetupPage() {
                                 </select>
                               </td>
                               <td className="py-2.5 pr-4">
-                                <input
-                                  type="number"
-                                  min={0}
-                                  max={12}
-                                  value={row.installmentCount}
-                                  onChange={(e) =>
-                                    updateDraftRow(row.classID, { installmentCount: Number(e.target.value) })
-                                  }
-                                  className={`${inputClasses} w-20`}
+                                <InstallmentSummary
+                                  slots={row.installmentSlots}
+                                  onView={() => setPickerClassId(row.classID)}
                                 />
                               </td>
                             </tr>
@@ -556,11 +662,15 @@ function ClassPayModeSetupPage() {
         )}
       </SectionCard>
 
-      {modal && (
-        <InstallmentModal
-          classLabel={modal.classLabel}
-          installments={modal.installments}
-          onClose={() => setModal(null)}
+      {pickerRow && (
+        <InstallmentPickerModal
+          classLabel={pickerRow.className}
+          slots={pickerRow.installmentSlots}
+          onSave={(slots) => {
+            updateDraftRow(pickerRow.classID, { installmentSlots: slots });
+            setPickerClassId(null);
+          }}
+          onClose={() => setPickerClassId(null)}
         />
       )}
     </div>
