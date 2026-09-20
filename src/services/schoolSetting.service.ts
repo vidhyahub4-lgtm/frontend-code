@@ -1,6 +1,9 @@
 import { apiRequest } from "../lib/httpClient";
 import type { ApiAckResponse } from "../types/api.types";
-import type { CreateNewRegistrationResponse } from "../types/studentRegistration.types";
+import type {
+  CreateNewRegistrationResponse,
+  GetAllNewRegistrationsResponse,
+} from "../types/studentRegistration.types";
 import type {
   CreateSchClassRequest,
   GetSchClassesResponse,
@@ -17,6 +20,12 @@ export const schoolSettingService = {
       bodyType: "multipart",
       timeoutMs: 30_000, // photo upload can be slower than a normal JSON call
     });
+  },
+  getAllNewRegistrations(schId: string) {
+    return apiRequest<GetAllNewRegistrationsResponse>(
+      `/school-settings/get-all-newregstration?schId=${encodeURIComponent(schId)}`,
+      { method: "GET" }
+    );
   },
 
 

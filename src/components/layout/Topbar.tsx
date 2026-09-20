@@ -24,7 +24,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
   const initials = user ? `${user.firstname[0] ?? ""}${user.lastname[0] ?? ""}`.toUpperCase() : "";
 
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between gap-4 border-b border-line bg-paper/90 backdrop-blur px-4 py-3 lg:px-8">
+    <header className="print:hidden sticky top-0 z-30 flex items-center justify-between gap-4 border-b border-line bg-paper/90 backdrop-blur px-4 py-3 lg:px-8">
       <button
         type="button"
         onClick={onMenuClick}

@@ -39,7 +39,7 @@ export function Sidebar({ isMobileOpen, onClose }: SidebarProps) {
   return (
     <>
       {/* Desktop: persistent column */}
-      <aside className="hidden lg:flex lg:w-72 lg:shrink-0 lg:flex-col lg:h-screen lg:sticky lg:top-0 bg-chalkboard text-chalk">
+      <aside className="print:hidden hidden lg:flex lg:w-72 lg:shrink-0 lg:flex-col lg:h-screen lg:sticky lg:top-0 bg-chalkboard text-chalk">
         <div className="flex items-center gap-2.5 px-5 py-5 border-b border-white/10">
           <ChalkMarkIcon />
           <span className="font-display text-xl tracking-tight">VidyaHub</span>

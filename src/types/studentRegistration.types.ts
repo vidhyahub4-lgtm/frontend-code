@@ -8,3 +8,47 @@ export interface CreateNewRegistrationResponse {
     regno: number;
   };
 }
+
+/** One registration as returned by GET /school-settings/get-all-newregstration */
+export interface RegisteredStudent {
+  _id: string;
+  regno: number;
+  /** Session `_id` (not populated by the backend) — resolve the name via the sessions list. */
+  session: string;
+  schId: string;
+  schCode: string;
+  sname: string;
+  fname: string;
+  mname: string;
+  gname: string;
+  gender: "male" | "female" | "other";
+  category: "general" | "obc" | "sc" | "st";
+  age: number;
+  dob?: string;
+  mothertongue: string;
+  secLang?: string;
+  nationality: string;
+  religion: string;
+  penno?: string;
+  mob1: string;
+  mob2?: string;
+  whatAppno: string;
+  adharId?: string;
+  email?: string;
+  lclass?: string;
+  lper?: number;
+  lsch?: string;
+  lboard?: string;
+  classApplyfor?: string;
+  registrationdate?: string;
+  /** File name only; served from <apiBaseUrl>/uploads/studentImage/<Image> */
+  Image?: string;
+  createdAt?: string;
+}
+
+export interface GetAllNewRegistrationsResponse {
+  success: boolean;
+  message: string;
+  count: number;
+  data: RegisteredStudent[];
+}
