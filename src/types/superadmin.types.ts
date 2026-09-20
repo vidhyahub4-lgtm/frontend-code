@@ -281,7 +281,8 @@ export interface SchSchoolRef {
 export interface SchClass {
   _id: string;
   classID: SchClassRef;
-  sectionID: SchSectionRef;
+  /** One document per class; it lists ALL sections added to that class. */
+  sectionID: SchSectionRef[];
   schCode: string;
   schoolID: SchSchoolRef;
   createdBy?: string;

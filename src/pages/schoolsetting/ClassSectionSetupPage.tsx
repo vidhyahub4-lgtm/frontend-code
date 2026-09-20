@@ -228,8 +228,23 @@ function ClassSectionSetupPage() {
               emptyLabel="No classes added for this school yet."
               getRowKey={(item) => item._id}
               columns={[
-                { header: "Class", render: (item) => <span className="font-medium">{item.classID.classInWord} ({item.classID.className})</span> },
-                { header: "Section", render: (item) => item.sectionID.sectionName },
+                { header: "Class", render: (item) => <span className="font-medium">{item.classID.className}</span> },
+                { header: "Class in Words", render: (item) => item.classID.classInWord },
+                {
+                  header: "Section",
+                  render: (item) => (
+                    <div className="flex flex-wrap gap-1.5">
+                      {item.sectionID.map((section) => (
+                        <span
+                          key={section._id}
+                          className="rounded-full bg-marigold/15 px-2.5 py-0.5 text-xs font-medium text-ink"
+                        >
+                          {section.sectionName}
+                        </span>
+                      ))}
+                    </div>
+                  ),
+                },
               ]}
             />
           )}
