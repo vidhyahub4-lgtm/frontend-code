@@ -209,7 +209,6 @@ function ClassPayModeSetupPage() {
   const selectedSchool = useMemo(() => schools.find((s) => s._id === schoolID), [schools, schoolID]);
 
   const [setups, setSetups] = useState<SchoolPayModeSetup[]>([]);
-  const [setupsLoading, setSetupsLoading] = useState(false);
   const [setupsError, setSetupsError] = useState<string | null>(null);
 
   const [schClasses, setSchClasses] = useState<SchClass[]>([]);
@@ -227,13 +226,11 @@ function ClassPayModeSetupPage() {
       setSetups([]);
       return;
     }
-    setSetupsLoading(true);
     setSetupsError(null);
     superAdminService
       .getSchoolPayMode(forSchoolID)
       .then((res) => setSetups(res.feeStructure ?? []))
       .catch((err) => setSetupsError(err instanceof ApiError ? err.message : "Could not load data."))
-      .finally(() => setSetupsLoading(false));
   }, []);
 
   useEffect(() => {
@@ -372,15 +369,12 @@ function ClassPayModeSetupPage() {
           </div>
         ) : (
           <>
-            {/* Already-configured sessions for this school */}
+            {/* Already-configured sessions for this school (hidden while there are none) */}
+            {(setupsError || setups.length > 0) && (
             <div className="mt-5 border-t border-line pt-4">
               <h3 className="mb-2 text-sm font-medium text-ink">Configured Sessions</h3>
-              {setupsLoading ? (
-                <p className="text-sm text-ink-soft">Loading…</p>
-              ) : setupsError ? (
+              {setupsError ? (
                 <p className="text-sm text-red-600">{setupsError}</p>
-              ) : setups.length === 0 ? (
-                <p className="text-sm text-ink-soft">No pay mode setup yet for this school.</p>
               ) : (
                 <div className="space-y-6">
                   {setups.map((setup) => (
@@ -425,6 +419,7 @@ function ClassPayModeSetupPage() {
                 </div>
               )}
             </div>
+            )}
 
             {/* New session builder */}
             <div className="mt-5 border-t border-line pt-4">
