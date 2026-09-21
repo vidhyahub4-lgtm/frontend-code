@@ -39,6 +39,8 @@ export interface RegisteredStudent {
   lper?: number;
   lsch?: string;
   lboard?: string;
+  /** Class `_id` (ref: "Class") — not populated by the backend. Resolve the
+   *  name via the school's assigned classes (schoolSettingService.getSchClasses). */
   classApplyfor?: string;
   registrationdate?: string;
   /** File name only; served from <apiBaseUrl>/uploads/studentImage/<Image> */

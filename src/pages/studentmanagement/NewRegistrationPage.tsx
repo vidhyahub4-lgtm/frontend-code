@@ -6,7 +6,7 @@ import { useSelectedSession } from "../../hooks/useSelectedSession";
 import { schoolSettingService } from "../../services/schoolSetting.service";
 import { superAdminService } from "../../services/superadmin.service";
 import { ApiError } from "../../types/api.types";
-import type { Session } from "../../types/superadmin.types";
+import type { Session, SchClass } from "../../types/superadmin.types";
 
 const inputClasses =
   "w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-marigold/40";
@@ -107,6 +107,7 @@ function validate(values: FormValues, sessionId: string): Errors {
     ["mothertongue", "Mother tongue"],
     ["mob1", "Mobile 1"],
     ["whatAppno", "WhatsApp number"],
+    ["classApplyfor", "Class applying for"],
   ];
 
   if (!sessionId) errors.session = "Select a session.";
@@ -212,6 +213,14 @@ function RegistrationForm({ schId, schCode }: { schId: string; schCode: string }
   const [sessionsLoading, setSessionsLoading] = useState(true);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
 
+  // "Class Applying For" dropdown options — classes assigned to this school
+  // (Class/Section Setup). The value submitted is the global Class's _id
+  // (classApplyfor now stores a Class ObjectId, not free text — backend
+  // model: models/school-setting/newRegistration.js).
+  const [schClasses, setSchClasses] = useState<SchClass[]>([]);
+  const [schClassesLoading, setSchClassesLoading] = useState(true);
+  const [schClassesError, setSchClassesError] = useState<string | null>(null);
+
   // The form's session starts as the globally selected one, and the user may
   // override it here. The override remembers which global session it was made
   // against, so when the global selection changes (Save in the settings
@@ -238,6 +247,27 @@ function RegistrationForm({ schId, schCode }: { schId: string; schCode: string }
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    schoolSettingService
+      .getSchClasses(schId)
+      .then((res) => {
+        if (!cancelled) setSchClasses(res.schClasses ?? []);
+      })
+      .catch((err) => {
+        if (!cancelled)
+          setSchClassesError(
+            err instanceof ApiError ? err.message : "Could not load classes."
+          );
+      })
+      .finally(() => {
+        if (!cancelled) setSchClassesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [schId]);
 
   // Free the photo's preview URL when the form goes away.
   const previewUrlRef = useRef<string | null>(null);
@@ -657,14 +687,28 @@ function RegistrationForm({ schId, schCode }: { schId: string; schCode: string }
         <section className="space-y-4">
           <SectionHeading>Admission Details</SectionHeading>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Field id="reg-classApplyfor" label="Class Applying For">
-              <input
+            <Field
+              id="reg-classApplyfor"
+              label="Class Applying For"
+              required
+              error={errors.classApplyfor ?? schClassesError ?? undefined}
+            >
+              <select
                 id="reg-classApplyfor"
-                placeholder="e.g. Class 6"
                 value={values.classApplyfor}
                 onChange={(e) => setValue("classApplyfor", e.target.value)}
-                className={inputClasses}
-              />
+                disabled={schClassesLoading}
+                className={cls("classApplyfor")}
+              >
+                <option value="">
+                  {schClassesLoading ? "Loading classes…" : "Select a class"}
+                </option>
+                {schClasses.map((schClass) => (
+                  <option key={schClass._id} value={schClass.classID._id}>
+                    {schClass.classID.className}
+                  </option>
+                ))}
+              </select>
             </Field>
           </div>
         </section>

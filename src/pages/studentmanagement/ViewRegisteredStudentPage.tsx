@@ -9,7 +9,7 @@ import { schoolSettingService } from "../../services/schoolSetting.service";
 import { superAdminService } from "../../services/superadmin.service";
 import { ApiError } from "../../types/api.types";
 import type { RegisteredStudent } from "../../types/studentRegistration.types";
-import type { Session } from "../../types/superadmin.types";
+import type { Session, SchClass } from "../../types/superadmin.types";
 
 const inputClasses =
   "w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-marigold/40";
@@ -63,6 +63,10 @@ function RegisteredStudentsContent({ schId }: { schId: string }) {
 
   const [students, setStudents] = useState<RegisteredStudent[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
+  // classApplyfor on a registration is now a Class ObjectId (not a readable
+  // name — the backend's getAlNewReg doesn't populate it), so we resolve it
+  // ourselves against this school's assigned classes.
+  const [schClasses, setSchClasses] = useState<SchClass[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -71,11 +75,13 @@ function RegisteredStudentsContent({ schId }: { schId: string }) {
     Promise.all([
       schoolSettingService.getAllNewRegistrations(schId),
       superAdminService.getSessions(),
+      schoolSettingService.getSchClasses(schId),
     ])
-      .then(([registrations, sessionRes]) => {
+      .then(([registrations, sessionRes, schClassRes]) => {
         if (cancelled) return;
         setStudents(registrations.data ?? []);
         setSessions(sessionRes.sessions ?? []);
+        setSchClasses(schClassRes.schClasses ?? []);
       })
       .catch((err) => {
         if (!cancelled)
@@ -112,6 +118,12 @@ function RegisteredStudentsContent({ schId }: { schId: string }) {
     [sessions]
   );
   const sessionName = (id: string) => sessionNames.get(id) ?? "—";
+
+  const classNames = useMemo(
+    () => new Map(schClasses.map((sc) => [sc.classID._id, sc.classID.className])),
+    [schClasses]
+  );
+  const className = (id?: string) => (id ? classNames.get(id) ?? "—" : "—");
 
   const filtered = useMemo(() => {
     const regQuery = regNo.trim();
@@ -150,7 +162,7 @@ function RegisteredStudentsContent({ schId }: { schId: string }) {
             s.whatAppno,
             s.adharId,
             s.email,
-            s.classApplyfor,
+            s.classApplyfor ? classNames.get(s.classApplyfor) ?? "" : "",
             s.religion,
             s.category,
             sessionNames.get(s.session) ?? "",
@@ -162,7 +174,7 @@ function RegisteredStudentsContent({ schId }: { schId: string }) {
         return true;
       })
       .sort((a, b) => b.regno - a.regno); // newest registration first
-  }, [students, sessionFilter, regNo, fromDate, toDate, searchKey, searchValue, keyword, sessionNames]);
+  }, [students, sessionFilter, regNo, fromDate, toDate, searchKey, searchValue, keyword, sessionNames, classNames]);
 
   function handleClearAll() {
     setSessionOverride({ forGlobalId: globalSessionId, value: ALL_SESSIONS });
@@ -182,7 +194,7 @@ function RegisteredStudentsContent({ schId }: { schId: string }) {
     const rows = filtered.map((s) => [
       s.regno, formatDate(s.registrationdate), sessionName(s.session), s.sname, s.fname, s.mname,
       s.gname, capitalize(s.gender), s.category.toUpperCase(), s.dob ?? "", s.age, s.mob1,
-      s.mob2 ?? "", s.whatAppno, s.email ?? "", s.adharId ?? "", s.classApplyfor ?? "",
+      s.mob2 ?? "", s.whatAppno, s.email ?? "", s.adharId ?? "", className(s.classApplyfor),
     ]);
     const csv = [header, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n");
 
@@ -322,7 +334,7 @@ function RegisteredStudentsContent({ schId }: { schId: string }) {
               { header: "Gender", render: (item) => capitalize(item.gender) },
               { header: "DOB", render: (item) => formatDate(item.dob) },
               { header: "Mobile", render: (item) => item.mob1 },
-              { header: "Class Applying", render: (item) => item.classApplyfor || "—" },
+              { header: "Class Applying", render: (item) => className(item.classApplyfor) },
             ]}
           />
 
