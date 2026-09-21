@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Wallet, Plus, X } from "lucide-react";
 import { SectionCard } from "../../components/common/SectionCard";
 import { useEntityCrud } from "../../hooks/useEntityCrud";
+import { useSelectedSchool } from "../../hooks/useSelectedSchool";
 import { superAdminService } from "../../services/superadmin.service";
 import { schoolSettingService } from "../../services/schoolSetting.service";
 import { ApiError } from "../../types/api.types";
@@ -45,6 +46,9 @@ interface DraftRow {
   duration: string;
   payModeDuration: string;
   installmentSlots: InstallmentSlot[];
+  /** Whether this class is included in the next "Save Fee Structure" —
+   * lets the user save only a subset of the loaded classes at a time. */
+  included: boolean;
 }
 
 /** New rows start with every month ticked; the user unticks holidays. */
@@ -322,7 +326,11 @@ function ClassPayModeSetupPage() {
     create: () => Promise.resolve(),
   });
 
-  const [schoolID, setSchoolID] = useState("");
+  // Auto-select the school the superAdmin is currently "working as" (set via
+  // the settings icon in the navbar, stored in localStorage) if there is one.
+  // The dropdown below still lets them switch to a different school.
+  const { selectedSchool: workspaceSchool } = useSelectedSchool();
+  const [schoolID, setSchoolID] = useState(() => workspaceSchool?.id ?? "");
   const selectedSchool = useMemo(() => schools.find((s) => s._id === schoolID), [schools, schoolID]);
 
   const [setups, setSetups] = useState<SchoolPayModeSetup[]>([]);
@@ -407,6 +415,7 @@ function ClassPayModeSetupPage() {
             duration: DURATION_OPTIONS[0],
             payModeDuration: PAYMODE_DURATION_OPTIONS[0],
             installmentSlots: allMonthSlots(),
+            included: true,
           }))
         );
       })
@@ -419,12 +428,13 @@ function ClassPayModeSetupPage() {
   }
 
   async function handleSaveFeeStructure() {
-    if (!schoolID || !selectedSchool || !session.trim() || draftRows.length === 0) return;
+    const rowsToSave = draftRows.filter((r) => r.included);
+    if (!schoolID || !selectedSchool || !session.trim() || rowsToSave.length === 0) return;
 
     setIsSaving(true);
     setSaveError(null);
     try {
-      const feeStructure: CreatePayModeFeeStructureEntry[] = draftRows.map((r) => ({
+      const feeStructure: CreatePayModeFeeStructureEntry[] = rowsToSave.map((r) => ({
         class: r.classID,
         duration: r.duration,
         payModeDuration: r.payModeDuration,
@@ -438,8 +448,11 @@ function ClassPayModeSetupPage() {
         feeStructure,
       });
 
-      setSession("");
-      setDraftRows([]);
+      // Only drop the rows we just saved — any classes the user left
+      // unticked stay in the draft so they can be saved later.
+      const remaining = draftRows.filter((r) => !r.included);
+      setDraftRows(remaining);
+      if (remaining.length === 0) setSession("");
       loadSetups(schoolID);
     } catch (err) {
       setSaveError(err instanceof ApiError ? err.message : "Could not save. Please try again.");
@@ -450,7 +463,16 @@ function ClassPayModeSetupPage() {
 
   const pickerRow = draftRows.find((r) => r.classID === pickerClassId);
 
-  const canSave = Boolean(session.trim() && draftRows.length > 0 && draftRows.every((r) => countActive(r.installmentSlots) > 0));
+  const includedCount = draftRows.filter((r) => r.included).length;
+  const canSave = Boolean(
+    session.trim() &&
+      includedCount > 0 &&
+      draftRows.filter((r) => r.included).every((r) => countActive(r.installmentSlots) > 0)
+  );
+
+  function setAllIncluded(included: boolean) {
+    setDraftRows((rows) => rows.map((r) => ({ ...r, included })));
+  }
 
   return (
     <div>
@@ -474,6 +496,12 @@ function ClassPayModeSetupPage() {
             <option value="">
               {schoolsLoading ? "Loading schools…" : schools.length === 0 ? "No schools found" : "Select a school"}
             </option>
+            {/* Keep the auto-selected school visible even before the full list has loaded. */}
+            {workspaceSchool &&
+              schoolID === workspaceSchool.id &&
+              !schools.some((s) => s._id === workspaceSchool.id) && (
+                <option value={workspaceSchool.id}>{workspaceSchool.name}</option>
+              )}
             {schools.map((s) => (
               <option key={s._id} value={s._id}>
                 {s.schName}
@@ -574,9 +602,28 @@ function ClassPayModeSetupPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <p className="text-sm text-ink-soft">
-                    Session <span className="font-medium text-ink">{session}</span> — configure each class below, then save.
-                  </p>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm text-ink-soft">
+                      Session <span className="font-medium text-ink">{session}</span> — tick the classes you want to
+                      save now, configure each, then save. Untick a class to leave it for later.
+                    </p>
+                    <span className="flex shrink-0 gap-3 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setAllIncluded(true)}
+                        className="font-medium text-marigold-dark hover:underline"
+                      >
+                        Select all
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAllIncluded(false)}
+                        className="font-medium text-marigold-dark hover:underline"
+                      >
+                        Select none
+                      </button>
+                    </span>
+                  </div>
 
                   {schClasses.length === 0 ? (
                     <p className="text-sm text-ink-soft">
@@ -587,6 +634,7 @@ function ClassPayModeSetupPage() {
                       <table className="w-full text-left text-sm">
                         <thead>
                           <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-soft">
+                            <th className="py-2 pr-4 font-medium">Save?</th>
                             <th className="py-2 pr-4 font-medium">Class</th>
                             <th className="py-2 pr-4 font-medium">Duration</th>
                             <th className="py-2 pr-4 font-medium">PayMode Duration</th>
@@ -595,13 +643,23 @@ function ClassPayModeSetupPage() {
                         </thead>
                         <tbody className="divide-y divide-line">
                           {draftRows.map((row) => (
-                            <tr key={row.classID}>
+                            <tr key={row.classID} className={row.included ? "" : "text-ink-soft"}>
+                              <td className="py-2.5 pr-4">
+                                <input
+                                  type="checkbox"
+                                  checked={row.included}
+                                  onChange={(e) => updateDraftRow(row.classID, { included: e.target.checked })}
+                                  aria-label={`Include ${row.className} in this save`}
+                                  className="h-4 w-4 accent-marigold"
+                                />
+                              </td>
                               <td className="py-2.5 pr-4 font-medium">{row.className}</td>
                               <td className="py-2.5 pr-4">
                                 <select
                                   value={row.duration}
                                   onChange={(e) => updateDraftRow(row.classID, { duration: e.target.value })}
-                                  className={inputClasses}
+                                  disabled={!row.included}
+                                  className={`${inputClasses} disabled:opacity-50`}
                                 >
                                   {DURATION_OPTIONS.map((d) => (
                                     <option key={d} value={d}>{d}</option>
@@ -612,7 +670,8 @@ function ClassPayModeSetupPage() {
                                 <select
                                   value={row.payModeDuration}
                                   onChange={(e) => updateDraftRow(row.classID, { payModeDuration: e.target.value })}
-                                  className={inputClasses}
+                                  disabled={!row.included}
+                                  className={`${inputClasses} disabled:opacity-50`}
                                 >
                                   {PAYMODE_DURATION_OPTIONS.map((d) => (
                                     <option key={d} value={d}>{d}</option>
@@ -645,7 +704,9 @@ function ClassPayModeSetupPage() {
                       className="flex items-center justify-center gap-1.5 rounded-md bg-marigold px-4 py-2 text-sm font-medium text-chalkboard transition hover:bg-marigold-dark disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <Plus size={15} />
-                      {isSaving ? "Saving…" : "Save Fee Structure"}
+                      {isSaving
+                        ? "Saving…"
+                        : `Save Fee Structure${includedCount > 0 ? ` (${includedCount})` : ""}`}
                     </button>
                     <button
                       onClick={() => { setDraftRows([]); setSession(""); }}
