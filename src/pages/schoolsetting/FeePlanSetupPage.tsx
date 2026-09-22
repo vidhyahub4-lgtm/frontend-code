@@ -4,6 +4,7 @@ import { SectionCard } from "../../components/common/SectionCard";
 import { EntityTable } from "../../components/common/EntityTable";
 import { useEntityCrud } from "../../hooks/useEntityCrud";
 import { useSelectedSchool } from "../../hooks/useSelectedSchool";
+import { useSelectedSession } from "../../hooks/useSelectedSession";
 import { superAdminService } from "../../services/superadmin.service";
 import { schoolSettingService } from "../../services/schoolSetting.service";
 import { ApiError } from "../../types/api.types";
@@ -11,7 +12,6 @@ import { FEE_PLAN_HEAD_TYPES } from "../../types/superadmin.types";
 import type {
   FeePlanHeadType,
   FeePlanSetup,
-  Session,
   SchoolClass,
 } from "../../types/superadmin.types";
 
@@ -21,11 +21,7 @@ const labelClasses = "text-sm font-medium text-ink-soft";
 
 function FeePlanSetupPage() {
   const { selectedSchool } = useSelectedSchool();
-
-  const { items: sessions, isLoading: sessionsLoading } = useEntityCrud<Session, never>({
-    fetchList: () => superAdminService.getSessions().then((res) => res.sessions ?? []),
-    create: () => Promise.resolve(),
-  });
+  const { selectedSession } = useSelectedSession();
 
   const { items: classes, isLoading: classesLoading } = useEntityCrud<SchoolClass, never>({
     fetchList: () => superAdminService.getClasses().then((res) => res.classes ?? []),
@@ -33,8 +29,8 @@ function FeePlanSetupPage() {
   });
 
   const schoolID = selectedSchool?.id ?? "";
+  const sessionID = selectedSession?.id ?? "";
   const [headType, setHeadType] = useState<FeePlanHeadType | "">("");
-  const [session, setSession] = useState("");
   const [amounts, setAmounts] = useState<Record<string, string>>({});
 
   const [feePlans, setFeePlans] = useState<FeePlanSetup[]>([]);
@@ -63,7 +59,7 @@ function FeePlanSetupPage() {
     loadFeePlans(schoolID);
   }, [schoolID, loadFeePlans]);
 
-  const canSave = Boolean(schoolID && headType && session);
+  const canSave = Boolean(schoolID && sessionID && headType);
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -84,7 +80,7 @@ function FeePlanSetupPage() {
       await schoolSettingService.createFeePlanSetup({
         schId: schoolID,
         headType,
-        session,
+        session: sessionID,
         classes: filledClasses,
       });
       setAmounts({});
@@ -105,22 +101,33 @@ function FeePlanSetupPage() {
           <p className="mt-1 flex items-center gap-1.5 text-sm text-ink-soft">
             <SchoolIcon size={14} className="text-marigold-dark" />
             {selectedSchool.name}
+            {selectedSession && <span className="text-line">·</span>}
+            {selectedSession && selectedSession.name}
           </p>
         )}
       </div>
 
-      {!selectedSchool ? (
+      {!selectedSchool || !selectedSession ? (
         <div className="rounded-lg border border-dashed border-line bg-white px-5 py-10 text-center">
           <SchoolIcon size={28} className="mx-auto text-marigold-dark" />
-          <p className="mt-3 font-display text-lg text-ink">No school selected</p>
+          <p className="mt-3 font-display text-lg text-ink">
+            {!selectedSchool ? "No school selected" : "No session selected"}
+          </p>
           <p className="mt-1 text-sm text-ink-soft">
-            Use the settings icon at the top right to select a school first.
+            Use the settings icon at the top right to select a school and session first.
           </p>
         </div>
       ) : (
       <SectionCard title="Fee Plan Setup" icon={FileText}>
         <form onSubmit={handleSave} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label className={labelClasses}>Session</label>
+              <div className={`${inputClasses} cursor-not-allowed bg-chalk/60 text-ink`}>
+                {selectedSession?.name}
+              </div>
+            </div>
+
             <div className="space-y-1">
               <label htmlFor="fps-head-type" className={labelClasses}>
                 Select Head Type
@@ -135,32 +142,6 @@ function FeePlanSetupPage() {
                 {FEE_PLAN_HEAD_TYPES.map((opt) => (
                   <option key={opt} value={opt}>
                     {opt}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1">
-              <label htmlFor="fps-session" className={labelClasses}>
-                Session
-              </label>
-              <select
-                id="fps-session"
-                value={session}
-                onChange={(e) => setSession(e.target.value)}
-                className={inputClasses}
-                disabled={sessionsLoading || sessions.length === 0}
-              >
-                <option value="">
-                  {sessionsLoading
-                    ? "Loading sessions…"
-                    : sessions.length === 0
-                    ? "No sessions found — add one from Dashboard"
-                    : "Select a session"}
-                </option>
-                {sessions.map((s) => (
-                  <option key={s._id} value={s._id}>
-                    {s.session}
                   </option>
                 ))}
               </select>
