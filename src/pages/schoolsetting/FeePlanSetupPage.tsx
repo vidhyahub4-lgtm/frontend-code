@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { FileText, Save } from "lucide-react";
+import { FileText, Save, School as SchoolIcon } from "lucide-react";
 import { SectionCard } from "../../components/common/SectionCard";
 import { EntityTable } from "../../components/common/EntityTable";
 import { useEntityCrud } from "../../hooks/useEntityCrud";
+import { useSelectedSchool } from "../../hooks/useSelectedSchool";
 import { superAdminService } from "../../services/superadmin.service";
 import { schoolSettingService } from "../../services/schoolSetting.service";
 import { ApiError } from "../../types/api.types";
@@ -10,7 +11,6 @@ import { FEE_PLAN_HEAD_TYPES } from "../../types/superadmin.types";
 import type {
   FeePlanHeadType,
   FeePlanSetup,
-  School,
   Session,
   SchoolClass,
 } from "../../types/superadmin.types";
@@ -20,10 +20,7 @@ const inputClasses =
 const labelClasses = "text-sm font-medium text-ink-soft";
 
 function FeePlanSetupPage() {
-  const { items: schools, isLoading: schoolsLoading } = useEntityCrud<School, never>({
-    fetchList: () => superAdminService.getSchools().then((res) => res.schools ?? []),
-    create: () => Promise.resolve(),
-  });
+  const { selectedSchool } = useSelectedSchool();
 
   const { items: sessions, isLoading: sessionsLoading } = useEntityCrud<Session, never>({
     fetchList: () => superAdminService.getSessions().then((res) => res.sessions ?? []),
@@ -35,7 +32,7 @@ function FeePlanSetupPage() {
     create: () => Promise.resolve(),
   });
 
-  const [schoolID, setSchoolID] = useState("");
+  const schoolID = selectedSchool?.id ?? "";
   const [headType, setHeadType] = useState<FeePlanHeadType | "">("");
   const [session, setSession] = useState("");
   const [amounts, setAmounts] = useState<Record<string, string>>({});
@@ -75,14 +72,20 @@ function FeePlanSetupPage() {
     setIsSaving(true);
     setSaveError(null);
     try {
+      const filledClasses = classes
+        .map((c) => ({ classID: c._id, amount: Number(amounts[c._id]) || 0 }))
+        .filter((c) => c.amount > 0);
+      if (filledClasses.length === 0) {
+        setSaveError("Enter an amount for at least one class.");
+        setIsSaving(false);
+        return;
+      }
+
       await schoolSettingService.createFeePlanSetup({
         schId: schoolID,
         headType,
         session,
-        classes: classes.map((c) => ({
-          classID: c._id,
-          amount: Number(amounts[c._id]) || 0,
-        })),
+        classes: filledClasses,
       });
       setAmounts({});
       loadFeePlans(schoolID);
@@ -98,37 +101,26 @@ function FeePlanSetupPage() {
       <div className="mb-6">
         <p className="text-sm font-medium text-marigold-dark">School Setting · Fee Setting</p>
         <h1 className="mt-1 font-display text-2xl text-ink">Fee Plan Setup</h1>
+        {selectedSchool && (
+          <p className="mt-1 flex items-center gap-1.5 text-sm text-ink-soft">
+            <SchoolIcon size={14} className="text-marigold-dark" />
+            {selectedSchool.name}
+          </p>
+        )}
       </div>
 
+      {!selectedSchool ? (
+        <div className="rounded-lg border border-dashed border-line bg-white px-5 py-10 text-center">
+          <SchoolIcon size={28} className="mx-auto text-marigold-dark" />
+          <p className="mt-3 font-display text-lg text-ink">No school selected</p>
+          <p className="mt-1 text-sm text-ink-soft">
+            Use the settings icon at the top right to select a school first.
+          </p>
+        </div>
+      ) : (
       <SectionCard title="Fee Plan Setup" icon={FileText}>
         <form onSubmit={handleSave} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-1">
-              <label htmlFor="fps-school" className={labelClasses}>
-                Select School
-              </label>
-              <select
-                id="fps-school"
-                value={schoolID}
-                onChange={(e) => setSchoolID(e.target.value)}
-                className={inputClasses}
-                disabled={schoolsLoading || schools.length === 0}
-              >
-                <option value="">
-                  {schoolsLoading
-                    ? "Loading schools…"
-                    : schools.length === 0
-                    ? "No schools found"
-                    : "Select a school"}
-                </option>
-                {schools.map((s) => (
-                  <option key={s._id} value={s._id}>
-                    {s.schName}
-                  </option>
-                ))}
-              </select>
-            </div>
-
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1">
               <label htmlFor="fps-head-type" className={labelClasses}>
                 Select Head Type
@@ -265,6 +257,7 @@ function FeePlanSetupPage() {
           />
         </div>
       </SectionCard>
+      )}
     </div>
   );
 }
