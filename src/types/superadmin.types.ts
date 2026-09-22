@@ -313,9 +313,16 @@ export const FEE_PLAN_HEAD_TYPES = [
 ] as const;
 export type FeePlanHeadType = (typeof FEE_PLAN_HEAD_TYPES)[number];
 
+export interface FeePlanSetupHead {
+  feetype: string;
+  amount: number;
+  _id?: string;
+}
+
 export interface FeePlanSetupClassEntry {
   classID: SchClassRef;
-  amount: number;
+  heads: FeePlanSetupHead[];
+  total: number;
   _id?: string;
 }
 
@@ -329,7 +336,8 @@ export interface FeePlanSetup {
   headType: FeePlanHeadType;
   session: FeePlanSetupSessionRef;
   classes: FeePlanSetupClassEntry[];
-  schId: SchSchoolRef;
+  /** Populated on GET; a plain id string right after POST. */
+  schId: SchSchoolRef | string;
   createdby?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -339,7 +347,7 @@ export interface FeePlanSetup {
  * raw id (not populated) since this is what the backend expects on write. */
 export interface CreateFeePlanSetupClassEntry {
   classID: string;
-  amount: number;
+  heads: { feetype: string; amount: number }[];
 }
 
 export interface CreateFeePlanSetupRequest {
