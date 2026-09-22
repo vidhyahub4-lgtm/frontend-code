@@ -357,6 +357,13 @@ export interface CreateFeePlanSetupRequest {
   classes: CreateFeePlanSetupClassEntry[];
 }
 
+/** PATCH /school-settings/feeplansetup/:planId — session isn't sent; it can't change on update. */
+export interface UpdateFeePlanSetupRequest {
+  headType: FeePlanHeadType;
+  schId: string;
+  classes: CreateFeePlanSetupClassEntry[];
+}
+
 export interface GetFeePlanSetupsResponse {
   success: boolean;
   message: string;

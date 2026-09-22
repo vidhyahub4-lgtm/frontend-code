@@ -9,6 +9,7 @@ import type {
   GetSchClassesResponse,
   CreateFeePlanSetupRequest,
   GetFeePlanSetupsResponse,
+  UpdateFeePlanSetupRequest,
 } from "../types/superadmin.types";
 
 export const schoolSettingService = {
@@ -48,6 +49,12 @@ export const schoolSettingService = {
   createFeePlanSetup(payload: CreateFeePlanSetupRequest) {
     return apiRequest<ApiAckResponse>("/school-settings/create-feeplansetup", {
       method: "POST",
+      body: payload,
+    });
+  },
+  updateFeePlanSetup(planId: string, payload: UpdateFeePlanSetupRequest) {
+    return apiRequest<ApiAckResponse>(`/school-settings/feeplansetup/${encodeURIComponent(planId)}`, {
+      method: "PATCH",
       body: payload,
     });
   },

@@ -134,8 +134,12 @@ function FeePlanMatrix({
 
     // The API takes one headType per call, so group the rows and fire one
     // request per head type. Every class is sent (even with 0 amounts) so
-    // saved data always reflects the full grid.
+    // saved data always reflects the full grid. A head type already saved
+    // for this school+session is PATCHed instead of re-created.
     const headTypes = Array.from(new Set(rows.map((r) => r.headType)));
+    const existingByHeadType = new Map(
+      existingPlans.filter((p) => p.session._id === sessionId).map((p) => [p.headType, p._id])
+    );
     try {
       for (const headType of headTypes) {
         const rowsForType = rows.filter((r) => r.headType === headType);
@@ -146,12 +150,21 @@ function FeePlanMatrix({
             amount: Number(amountFor(row.key, c._id)) || 0,
           })),
         }));
-        await schoolSettingService.createFeePlanSetup({
-          schId,
-          session: sessionId,
-          headType,
-          classes: classesPayload,
-        });
+        const existingPlanId = existingByHeadType.get(headType);
+        if (existingPlanId) {
+          await schoolSettingService.updateFeePlanSetup(existingPlanId, {
+            headType,
+            schId,
+            classes: classesPayload,
+          });
+        } else {
+          await schoolSettingService.createFeePlanSetup({
+            schId,
+            session: sessionId,
+            headType,
+            classes: classesPayload,
+          });
+        }
       }
       setSaveMessage("Fee plan saved.");
     } catch (err) {
