@@ -16,26 +16,23 @@ import type {
 } from "../../types/superadmin.types";
 
 const inputClasses =
-  "w-full rounded-md border border-line bg-white px-2 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-marigold/40";
-
-/** One table row: a single fee head (e.g. "admission") under a head type (e.g. "admission"). */
-interface HeadRow {
-  key: string;
-  headType: FeePlanHeadType;
-  feetype: string;
-}
+  "w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-marigold/40";
+const labelClasses = "text-sm font-medium text-ink-soft";
+const readOnlyChipClasses = `${inputClasses} cursor-not-allowed bg-chalk/60 text-ink`;
 
 /**
- * All of this depends on the selected school + session, so it is rendered
- * with key={`${schId}:${sessionId}`} by the page below — switching either
- * one remounts it and refetches.
+ * Everything here depends on the selected school + session, so it is
+ * rendered with key={`${schId}:${sessionId}`} by the page below — switching
+ * either one remounts it and refetches.
  */
-function FeePlanMatrix({
+function FeePlanEditor({
   schId,
+  schoolName,
   sessionId,
   sessionName,
 }: {
   schId: string;
+  schoolName: string;
   sessionId: string;
   sessionName: string;
 }) {
@@ -71,100 +68,100 @@ function FeePlanMatrix({
     };
   }, [schId]);
 
-  // Rows = every fee head created (Fee Head Setup page) for this session,
-  // grouped in the order they were added. This is what makes a new fee head
-  // show up here automatically.
-  const rows = useMemo<HeadRow[]>(() => {
-    const seen = new Set<string>();
-    const list: HeadRow[] = [];
-    feeHeadDocs
-      .filter((doc) => doc.session === sessionName)
-      .forEach((doc) => {
-        doc.feehead.forEach((name) => {
-          const key = `${doc.headtype}::${name}`;
-          if (!seen.has(key)) {
-            seen.add(key);
-            list.push({ key, headType: doc.headtype as FeePlanHeadType, feetype: name });
-          }
-        });
-      });
-    return list;
-  }, [feeHeadDocs, sessionName]);
+  // Head types available to pick from: whatever has fee heads set up for this session.
+  const headTypeOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          feeHeadDocs.filter((doc) => doc.session === sessionName).map((doc) => doc.headtype)
+        )
+      ) as FeePlanHeadType[],
+    [feeHeadDocs, sessionName]
+  );
 
-  // amounts[rowKey][classId] = amount (as a string, for controlled inputs)
+  const [headType, setHeadType] = useState<FeePlanHeadType | "">("");
+  useEffect(() => {
+    // Keep the picked head type valid as the options change; default to the first one.
+    if (headType && headTypeOptions.includes(headType)) return;
+    setHeadType(headTypeOptions[0] ?? "");
+  }, [headTypeOptions, headType]);
+
+  // Rows = the fee heads under the selected head type (e.g. "admission", "smart erp").
+  const feetypes = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          feeHeadDocs
+            .filter((doc) => doc.session === sessionName && doc.headtype === headType)
+            .flatMap((doc) => doc.feehead)
+        )
+      ),
+    [feeHeadDocs, sessionName, headType]
+  );
+
+  // The plan already saved for this school+session+headType, if any.
+  const existingPlan = useMemo(
+    () => existingPlans.find((p) => p.session._id === sessionId && p.headType === headType),
+    [existingPlans, sessionId, headType]
+  );
+
+  // amounts[feetype][classId] = amount (string, for controlled inputs)
   const [amounts, setAmounts] = useState<Record<string, Record<string, string>>>({});
 
-  // Seed amounts from what's already saved, whenever the loaded data changes.
   useEffect(() => {
     const next: Record<string, Record<string, string>> = {};
-    existingPlans
-      .filter((plan) => plan.session._id === sessionId)
-      .forEach((plan) => {
-        plan.classes.forEach((cls) => {
-          cls.heads.forEach((head) => {
-            const key = `${plan.headType}::${head.feetype}`;
-            next[key] ??= {};
-            next[key][cls.classID._id] = String(head.amount);
-          });
-        });
+    existingPlan?.classes.forEach((cls) => {
+      cls.heads.forEach((head) => {
+        next[head.feetype] ??= {};
+        next[head.feetype][cls.classID._id] = String(head.amount);
       });
+    });
     setAmounts(next);
-  }, [existingPlans, sessionId]);
+  }, [existingPlan]);
 
-  function setAmount(rowKey: string, classId: string, value: string) {
-    setAmounts((prev) => ({ ...prev, [rowKey]: { ...prev[rowKey], [classId]: value } }));
+  function setAmount(feetype: string, classId: string, value: string) {
+    setAmounts((prev) => ({ ...prev, [feetype]: { ...prev[feetype], [classId]: value } }));
   }
-
-  function amountFor(rowKey: string, classId: string): string {
-    return amounts[rowKey]?.[classId] ?? "";
+  function amountFor(feetype: string, classId: string): string {
+    return amounts[feetype]?.[classId] ?? "";
   }
-
   const classTotal = (classId: string) =>
-    rows.reduce((sum, row) => sum + (Number(amountFor(row.key, classId)) || 0), 0);
+    feetypes.reduce((sum, feetype) => sum + (Number(amountFor(feetype, classId)) || 0), 0);
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
-  async function handleSaveAll() {
-    if (rows.length === 0 || classes.length === 0) return;
+  async function handleSave() {
+    if (!headType || feetypes.length === 0 || classes.length === 0) return;
     setIsSaving(true);
     setSaveError(null);
     setSaveMessage(null);
-
-    // The API takes one headType per call, so group the rows and fire one
-    // request per head type. Every class is sent (even with 0 amounts) so
-    // saved data always reflects the full grid. A head type already saved
-    // for this school+session is PATCHed instead of re-created.
-    const headTypes = Array.from(new Set(rows.map((r) => r.headType)));
-    const existingByHeadType = new Map(
-      existingPlans.filter((p) => p.session._id === sessionId).map((p) => [p.headType, p._id])
-    );
     try {
-      for (const headType of headTypes) {
-        const rowsForType = rows.filter((r) => r.headType === headType);
-        const classesPayload: CreateFeePlanSetupClassEntry[] = classes.map((c) => ({
-          classID: c._id,
-          heads: rowsForType.map((row) => ({
-            feetype: row.feetype,
-            amount: Number(amountFor(row.key, c._id)) || 0,
-          })),
-        }));
-        const existingPlanId = existingByHeadType.get(headType);
-        if (existingPlanId) {
-          await schoolSettingService.updateFeePlanSetup(existingPlanId, {
-            headType,
-            schId,
-            classes: classesPayload,
-          });
-        } else {
-          await schoolSettingService.createFeePlanSetup({
-            schId,
-            session: sessionId,
-            headType,
-            classes: classesPayload,
-          });
-        }
+      const classesPayload: CreateFeePlanSetupClassEntry[] = classes.map((c) => ({
+        classID: c._id,
+        heads: feetypes.map((feetype) => ({
+          feetype,
+          amount: Number(amountFor(feetype, c._id)) || 0,
+        })),
+      }));
+
+      if (existingPlan) {
+        await schoolSettingService.updateFeePlanSetup(existingPlan._id, {
+          headType,
+          schId,
+          classes: classesPayload,
+        });
+      } else {
+        await schoolSettingService.createFeePlanSetup({
+          schId,
+          session: sessionId,
+          headType,
+          classes: classesPayload,
+        });
+        // Refresh so the next save for this headType updates instead of re-creating.
+        const plans = await schoolSettingService.getFeePlanSetups(schId);
+        setExistingPlans(plans.data ?? []);
       }
       setSaveMessage("Fee plan saved.");
     } catch (err) {
@@ -174,95 +171,125 @@ function FeePlanMatrix({
     }
   }
 
-  if (isLoading || classesLoading) {
-    return <p className="px-1 py-6 text-center text-sm text-ink-soft">Loading fee plan…</p>;
-  }
-  if (loadError) {
-    return <p className="px-1 py-6 text-center text-sm text-red-600">{loadError}</p>;
-  }
-  if (rows.length === 0) {
-    return (
-      <p className="px-1 py-6 text-center text-sm text-ink-soft">
-        No fee heads set up for this session yet. Add some from Fee Head Setup first.
-      </p>
-    );
-  }
-  if (classes.length === 0) {
-    return (
-      <p className="px-1 py-6 text-center text-sm text-ink-soft">
-        No classes found — add one from Essential Setting.
-      </p>
-    );
-  }
-
   return (
     <div className="space-y-4">
-      <div className="overflow-x-auto rounded-md border border-line">
-        <table className="w-full min-w-max text-left text-sm">
-          <thead>
-            <tr className="border-b border-line bg-cream/40 text-xs uppercase tracking-wide text-ink-soft">
-              <th className="py-2 px-3 font-medium">SlNo</th>
-              <th className="py-2 px-3 font-medium">Head Name</th>
-              {classes.map((c) => (
-                <th key={c._id} className="py-2 px-3 text-center font-medium">
-                  {c.className}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
-            {rows.map((row, idx) => (
-              <tr key={row.key}>
-                <td className="py-2 px-3 text-ink-soft">{idx + 1}</td>
-                <td className="py-2 px-3 font-medium capitalize">{row.feetype}</td>
-                {classes.map((c) => (
-                  <td key={c._id} className="py-1.5 px-2">
-                    <input
-                      type="number"
-                      min={0}
-                      value={amountFor(row.key, c._id)}
-                      onChange={(e) => setAmount(row.key, c._id, e.target.value)}
-                      placeholder="0"
-                      className={`${inputClasses} w-24`}
-                    />
-                  </td>
-                ))}
-              </tr>
-            ))}
-            <tr className="bg-cream/40 font-medium">
-              <td className="py-2 px-3" colSpan={2}>
-                Total
-              </td>
-              {classes.map((c) => (
-                <td key={c._id} className="py-2 px-3 text-center">
-                  {classTotal(c._id)}
-                </td>
-              ))}
-            </tr>
-          </tbody>
-        </table>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="space-y-1">
+          <label className={labelClasses}>Select School</label>
+          <div className={readOnlyChipClasses}>{schoolName}</div>
+        </div>
+        <div className="space-y-1">
+          <label htmlFor="fps-head-type" className={labelClasses}>
+            Select Head Type
+          </label>
+          <select
+            id="fps-head-type"
+            value={headType}
+            onChange={(e) => setHeadType(e.target.value as FeePlanHeadType)}
+            className={inputClasses}
+            disabled={isLoading || headTypeOptions.length === 0}
+          >
+            {headTypeOptions.length === 0 ? (
+              <option value="">
+                {isLoading ? "Loading…" : "No fee heads set up — add some from Fee Head Setup"}
+              </option>
+            ) : (
+              headTypeOptions.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))
+            )}
+          </select>
+        </div>
+        <div className="space-y-1">
+          <label className={labelClasses}>Session</label>
+          <div className={readOnlyChipClasses}>{sessionName}</div>
+        </div>
       </div>
 
-      {saveError && (
-        <p role="alert" className="rounded-md bg-red-50 px-3.5 py-2 text-sm text-red-600">
-          {saveError}
+      {isLoading || classesLoading ? (
+        <p className="px-1 py-6 text-center text-sm text-ink-soft">Loading fee plan…</p>
+      ) : loadError ? (
+        <p className="px-1 py-6 text-center text-sm text-red-600">{loadError}</p>
+      ) : classes.length === 0 ? (
+        <p className="px-1 py-6 text-center text-sm text-ink-soft">
+          No classes found — add one from Essential Setting.
         </p>
-      )}
-      {saveMessage && (
-        <p role="status" className="rounded-md bg-green-50 px-3.5 py-2 text-sm text-green-700">
-          {saveMessage}
+      ) : !headType ? null : feetypes.length === 0 ? (
+        <p className="px-1 py-6 text-center text-sm text-ink-soft">
+          No fee heads under "{headType}" for this session.
         </p>
-      )}
+      ) : (
+        <>
+          <div className="overflow-x-auto rounded-md border border-line">
+            <table className="w-full min-w-max text-left text-sm">
+              <thead>
+                <tr className="border-b border-line bg-cream/40 text-xs uppercase tracking-wide text-ink-soft">
+                  <th className="py-2 px-3 font-medium">SlNo</th>
+                  <th className="py-2 px-3 font-medium">Head Name</th>
+                  {classes.map((c) => (
+                    <th key={c._id} className="py-2 px-3 text-center font-medium">
+                      {c.className}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {feetypes.map((feetype, idx) => (
+                  <tr key={feetype}>
+                    <td className="py-2 px-3 text-ink-soft">{idx + 1}</td>
+                    <td className="py-2 px-3 font-medium capitalize">{feetype}</td>
+                    {classes.map((c) => (
+                      <td key={c._id} className="py-1.5 px-2">
+                        <input
+                          type="number"
+                          min={0}
+                          value={amountFor(feetype, c._id)}
+                          onChange={(e) => setAmount(feetype, c._id, e.target.value)}
+                          placeholder="0"
+                          className={`${inputClasses} w-24`}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+                <tr className="bg-cream/40 font-medium">
+                  <td className="py-2 px-3" colSpan={2}>
+                    Total
+                  </td>
+                  {classes.map((c) => (
+                    <td key={c._id} className="py-2 px-3 text-center">
+                      {classTotal(c._id)}
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
-      <button
-        type="button"
-        onClick={handleSaveAll}
-        disabled={isSaving}
-        className="flex items-center justify-center gap-1.5 rounded-md bg-marigold px-4 py-2 text-sm font-medium text-chalkboard transition hover:bg-marigold-dark disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        <Save size={15} />
-        {isSaving ? "Saving…" : "Save Fee Plan"}
-      </button>
+          {saveError && (
+            <p role="alert" className="rounded-md bg-red-50 px-3.5 py-2 text-sm text-red-600">
+              {saveError}
+            </p>
+          )}
+          {saveMessage && (
+            <p role="status" className="rounded-md bg-green-50 px-3.5 py-2 text-sm text-green-700">
+              {saveMessage}
+            </p>
+          )}
+
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={isSaving}
+            className="flex items-center justify-center gap-1.5 rounded-md bg-marigold px-4 py-2 text-sm font-medium text-chalkboard transition hover:bg-marigold-dark disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Save size={15} />
+            {isSaving ? "Saving…" : "Save Fee Plan"}
+          </button>
+        </>
+      )}
     </div>
   );
 }
@@ -276,14 +303,6 @@ function FeePlanSetupPage() {
       <div className="mb-6">
         <p className="text-sm font-medium text-marigold-dark">School Setting · Fee Setting</p>
         <h1 className="mt-1 font-display text-2xl text-ink">Fee Plan Setup</h1>
-        {selectedSchool && (
-          <p className="mt-1 flex items-center gap-1.5 text-sm text-ink-soft">
-            <SchoolIcon size={14} className="text-marigold-dark" />
-            {selectedSchool.name}
-            {selectedSession && <span className="text-line">·</span>}
-            {selectedSession && selectedSession.name}
-          </p>
-        )}
       </div>
 
       {!selectedSchool || !selectedSession ? (
@@ -298,9 +317,10 @@ function FeePlanSetupPage() {
         </div>
       ) : (
         <SectionCard title="Fee Plan Setup" icon={FileText}>
-          <FeePlanMatrix
+          <FeePlanEditor
             key={`${selectedSchool.id}:${selectedSession.id}`}
             schId={selectedSchool.id}
+            schoolName={selectedSchool.name}
             sessionId={selectedSession.id}
             sessionName={selectedSession.name}
           />
