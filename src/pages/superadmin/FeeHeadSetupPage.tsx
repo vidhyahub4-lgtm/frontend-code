@@ -5,6 +5,7 @@ import { SectionCard } from "../../components/common/SectionCard";
 import { EntityTable } from "../../components/common/EntityTable";
 import { useEntityCrud } from "../../hooks/useEntityCrud";
 import { useSelectedSchool } from "../../hooks/useSelectedSchool";
+import { useSelectedSession } from "../../hooks/useSelectedSession";
 import { superAdminService } from "../../services/superadmin.service";
 import { FEE_HEAD_TYPES } from "../../types/superadmin.types";
 import type {
@@ -12,7 +13,6 @@ import type {
   FeeHeadSetup,
   FeeHeadType,
   FeePlanType,
-  Session,
 } from "../../types/superadmin.types";
 
 const inputClasses =
@@ -33,12 +33,10 @@ interface FeeHeadRow {
  */
 function FeeHeadSetupContent({
   schId,
-  sessions,
-  sessionsLoading,
+  sessionName,
 }: {
   schId: string;
-  sessions: Session[];
-  sessionsLoading: boolean;
+  sessionName: string;
 }) {
   const {
     items: feeHeadDocs,
@@ -84,7 +82,6 @@ function FeeHeadSetupContent({
   );
 
   const [headtype, setHeadtype] = useState<FeeHeadType | "">("");
-  const [session, setSession] = useState("");
   const [feehead, setFeehead] = useState("");
 
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
@@ -92,16 +89,16 @@ function FeeHeadSetupContent({
   // Hide plans already added for the chosen head type + session, so a
   // duplicate can't even be picked.
   const availablePlans = useMemo(() => {
-    if (!headtype || !session) return planNames;
+    if (!headtype || !sessionName) return planNames;
     const used = new Set(
       rows
-        .filter((row) => row.headtype === headtype && row.session === session)
+        .filter((row) => row.headtype === headtype && row.session === sessionName)
         .map((row) => row.feehead.toLowerCase())
     );
     return planNames.filter((name) => !used.has(name.toLowerCase()));
-  }, [planNames, rows, headtype, session]);
+  }, [planNames, rows, headtype, sessionName]);
 
-  const canAdd = Boolean(headtype && session && feehead.trim());
+  const canAdd = Boolean(headtype && sessionName && feehead.trim());
 
   const feeHeadPlaceholder = plansLoading
     ? "Loading plans…"
@@ -116,23 +113,23 @@ function FeeHeadSetupContent({
   async function handleAdd(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const name = feehead.trim();
-    if (!headtype || !session || !name) return;
+    if (!headtype || !sessionName || !name) return;
 
     // The backend silently ignores duplicates (returns 201 with no change),
     // so we check here to give the user real feedback.
     const isDuplicate = rows.some(
       (row) =>
         row.headtype === headtype &&
-        row.session === session &&
+        row.session === sessionName &&
         row.feehead.toLowerCase() === name.toLowerCase()
     );
     if (isDuplicate) {
-      setDuplicateError(`"${name}" already exists for ${headtype} · ${session}.`);
+      setDuplicateError(`"${name}" already exists for ${headtype} · ${sessionName}.`);
       return;
     }
 
     setDuplicateError(null);
-    const ok = await createEntity({ headtype, session, feehead: name, schId });
+    const ok = await createEntity({ headtype, session: sessionName, feehead: name, schId });
     if (ok) setFeehead("");
   }
 
@@ -166,33 +163,8 @@ function FeeHeadSetupContent({
           </div>
 
           <div className="space-y-1">
-            <label htmlFor="fh-session" className={labelClasses}>
-              Session
-            </label>
-            <select
-              id="fh-session"
-              value={session}
-              onChange={(e) => {
-                setSession(e.target.value);
-                setFeehead("");
-                setDuplicateError(null);
-              }}
-              className={inputClasses}
-              disabled={sessionsLoading || sessions.length === 0}
-            >
-              <option value="">
-                {sessionsLoading
-                  ? "Loading sessions…"
-                  : sessions.length === 0
-                  ? "No sessions found — add one from Dashboard"
-                  : "Select a session"}
-              </option>
-              {sessions.map((s) => (
-                <option key={s._id} value={s.session}>
-                  {s.session}
-                </option>
-              ))}
-            </select>
+            <label className={labelClasses}>Session</label>
+            <div className={`${inputClasses} cursor-not-allowed bg-chalk/60 text-ink`}>{sessionName}</div>
           </div>
 
           <div className="space-y-1">
@@ -267,12 +239,7 @@ function FeeHeadSetupContent({
 
 function FeeHeadSetupPage() {
   const { selectedSchool } = useSelectedSchool();
-
-  // Sessions are global (not per school), so they load once here.
-  const { items: sessions, isLoading: sessionsLoading } = useEntityCrud<Session, never>({
-    fetchList: () => superAdminService.getSessions().then((res) => res.sessions ?? []),
-    create: () => Promise.resolve(),
-  });
+  const { selectedSession } = useSelectedSession();
 
   return (
     <div>
@@ -283,23 +250,26 @@ function FeeHeadSetupPage() {
           <p className="mt-1 flex items-center gap-1.5 text-sm text-ink-soft">
             <School size={14} className="text-marigold-dark" />
             {selectedSchool.name}
+            {selectedSession && <span className="text-line">·</span>}
+            {selectedSession && selectedSession.name}
           </p>
         )}
       </div>
 
-      {selectedSchool ? (
+      {selectedSchool && selectedSession ? (
         <FeeHeadSetupContent
-          key={selectedSchool.id}
+          key={`${selectedSchool.id}:${selectedSession.id}`}
           schId={selectedSchool.id}
-          sessions={sessions}
-          sessionsLoading={sessionsLoading}
+          sessionName={selectedSession.name}
         />
       ) : (
         <div className="rounded-lg border border-dashed border-line bg-white px-5 py-10 text-center">
           <School size={28} className="mx-auto text-marigold-dark" />
-          <p className="mt-3 font-display text-lg text-ink">No school selected</p>
+          <p className="mt-3 font-display text-lg text-ink">
+            {!selectedSchool ? "No school selected" : "No session selected"}
+          </p>
           <p className="mt-1 text-sm text-ink-soft">
-            Use the settings icon at the top right to select a school first.
+            Use the settings icon at the top right to select a school and session first.
           </p>
         </div>
       )}

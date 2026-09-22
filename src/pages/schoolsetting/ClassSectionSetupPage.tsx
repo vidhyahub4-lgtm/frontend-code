@@ -1,29 +1,23 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { School as SchoolIcon, Plus } from "lucide-react";
+import { useSelectedSchool } from "../../hooks/useSelectedSchool";
 import { SectionCard } from "../../components/common/SectionCard";
 import { EntityTable } from "../../components/common/EntityTable";
 import { useEntityCrud } from "../../hooks/useEntityCrud";
 import { superAdminService } from "../../services/superadmin.service";
 import { schoolSettingService } from "../../services/schoolSetting.service";
 import { ApiError } from "../../types/api.types";
-import type { School, SchoolClass, Section, SchClass } from "../../types/superadmin.types";
+import type { SchoolClass, Section, SchClass } from "../../types/superadmin.types";
 
 const inputClasses =
   "w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-marigold/40";
 const labelClasses = "text-sm font-medium text-ink-soft";
 
 function ClassSectionSetupPage() {
-  // Schools, master Classes and master Sections are all already-built
-  // "create one, list many" data — reuse useEntityCrud in read-only mode
-  // (fetchList only; create is unused/no-op here).
-  const { items: schools, isLoading: schoolsLoading } = useEntityCrud<
-    School,
-    never
-  >({
-    fetchList: () => superAdminService.getSchools().then((res) => res.schools ?? []),
-    create: () => Promise.resolve(),
-  });
+  const { selectedSchool } = useSelectedSchool();
 
+  // Master Classes and master Sections are already-built "create one, list
+  // many" data — reuse useEntityCrud in read-only mode (fetchList only).
   const { items: classes, isLoading: classesLoading } = useEntityCrud<
     SchoolClass,
     never
@@ -40,7 +34,7 @@ function ClassSectionSetupPage() {
     create: () => Promise.resolve(),
   });
 
-  const [schoolID, setSchoolID] = useState("");
+  const schoolID = selectedSchool?.id ?? "";
   const [classID, setClassID] = useState("");
   const [sectionID, setSectionID] = useState("");
 
@@ -80,11 +74,6 @@ function ClassSectionSetupPage() {
     [sections, classID]
   );
 
-  const selectedSchool = useMemo(
-    () => schools.find((s) => s._id === schoolID),
-    [schools, schoolID]
-  );
-
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!schoolID || !classID || !sectionID || !selectedSchool) return;
@@ -115,36 +104,25 @@ function ClassSectionSetupPage() {
       <div className="mb-6">
         <p className="text-sm font-medium text-marigold-dark">School Setting · Essential Setting</p>
         <h1 className="mt-1 font-display text-2xl text-ink">Class / Section Setup</h1>
+        {selectedSchool && (
+          <p className="mt-1 flex items-center gap-1.5 text-sm text-ink-soft">
+            <SchoolIcon size={14} className="text-marigold-dark" />
+            {selectedSchool.name}
+          </p>
+        )}
       </div>
 
+      {!selectedSchool ? (
+        <div className="rounded-lg border border-dashed border-line bg-white px-5 py-10 text-center">
+          <SchoolIcon size={28} className="mx-auto text-marigold-dark" />
+          <p className="mt-3 font-display text-lg text-ink">No school selected</p>
+          <p className="mt-1 text-sm text-ink-soft">
+            Use the settings icon at the top right to select a school first.
+          </p>
+        </div>
+      ) : (
       <SectionCard title="Class / Section Setup" icon={SchoolIcon}>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1">
-            <label htmlFor="scs-school" className={labelClasses}>
-              Select School
-            </label>
-            <select
-              id="scs-school"
-              value={schoolID}
-              onChange={(e) => setSchoolID(e.target.value)}
-              className={inputClasses}
-              disabled={schoolsLoading || schools.length === 0}
-            >
-              <option value="">
-                {schoolsLoading
-                  ? "Loading schools…"
-                  : schools.length === 0
-                  ? "No schools found"
-                  : "Select a school"}
-              </option>
-              {schools.map((s) => (
-                <option key={s._id} value={s._id}>
-                  {s.schName}
-                </option>
-              ))}
-            </select>
-          </div>
-
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1 space-y-1">
               <label htmlFor="scs-class" className={labelClasses}>
@@ -250,6 +228,7 @@ function ClassSectionSetupPage() {
           )}
         </div>
       </SectionCard>
+      )}
     </div>
   );
 }

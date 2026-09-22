@@ -1,40 +1,28 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { Clock, Save } from "lucide-react";
+import { Clock, Save, School as SchoolIcon } from "lucide-react";
+import { useSelectedSchool } from "../../hooks/useSelectedSchool";
+import { useSelectedSession } from "../../hooks/useSelectedSession";
 import { SectionCard } from "../../components/common/SectionCard";
 import { EntityTable } from "../../components/common/EntityTable";
-import { useEntityCrud } from "../../hooks/useEntityCrud";
 import { superAdminService } from "../../services/superadmin.service";
 import { schoolSettingService } from "../../services/schoolSetting.service";
 import { ApiError } from "../../types/api.types";
 import { LATE_FINE_TYPES } from "../../types/superadmin.types";
-import type {
-  LateFineType,
-  LateFineSetup,
-  School,
-  Session,
-  SchClass,
-} from "../../types/superadmin.types";
+import type { LateFineType, LateFineSetup, SchClass } from "../../types/superadmin.types";
 
 const inputClasses =
   "w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-marigold/40";
 const labelClasses = "text-sm font-medium text-ink-soft";
 
 function LateFinePage() {
-  const { items: schools, isLoading: schoolsLoading } = useEntityCrud<School, never>({
-    fetchList: () => superAdminService.getSchools().then((res) => res.schools ?? []),
-    create: () => Promise.resolve(),
-  });
+  const { selectedSchool } = useSelectedSchool();
+  const { selectedSession } = useSelectedSession();
+  const schoolID = selectedSchool?.id ?? "";
+  const session = selectedSession?.id ?? "";
 
-  const { items: sessions, isLoading: sessionsLoading } = useEntityCrud<Session, never>({
-    fetchList: () => superAdminService.getSessions().then((res) => res.sessions ?? []),
-    create: () => Promise.resolve(),
-  });
-
-  const [schoolID, setSchoolID] = useState("");
   const [schClasses, setSchClasses] = useState<SchClass[]>([]);
   const [schClassesLoading, setSchClassesLoading] = useState(false);
 
-  const [session, setSession] = useState("");
   const [classID, setClassID] = useState("");
   const [selectInstallemt, setSelectInstallemt] = useState("");
   const [duedateAfter, setDuedateAfter] = useState("");
@@ -121,63 +109,30 @@ function LateFinePage() {
       <div className="mb-6">
         <p className="text-sm font-medium text-marigold-dark">School Setting · Fee Setting</p>
         <h1 className="mt-1 font-display text-2xl text-ink">Late Fine</h1>
+        {selectedSchool && (
+          <p className="mt-1 flex items-center gap-1.5 text-sm text-ink-soft">
+            <SchoolIcon size={14} className="text-marigold-dark" />
+            {selectedSchool.name}
+            {selectedSession && <span className="text-line">·</span>}
+            {selectedSession && selectedSession.name}
+          </p>
+        )}
       </div>
 
+      {!selectedSchool || !selectedSession ? (
+        <div className="rounded-lg border border-dashed border-line bg-white px-5 py-10 text-center">
+          <SchoolIcon size={28} className="mx-auto text-marigold-dark" />
+          <p className="mt-3 font-display text-lg text-ink">
+            {!selectedSchool ? "No school selected" : "No session selected"}
+          </p>
+          <p className="mt-1 text-sm text-ink-soft">
+            Use the settings icon at the top right to select a school and session first.
+          </p>
+        </div>
+      ) : (
       <SectionCard title="Late Fine Setup" icon={Clock}>
         <form onSubmit={handleSave} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-1">
-              <label htmlFor="lf-school" className={labelClasses}>
-                Select School
-              </label>
-              <select
-                id="lf-school"
-                value={schoolID}
-                onChange={(e) => setSchoolID(e.target.value)}
-                className={inputClasses}
-                disabled={schoolsLoading || schools.length === 0}
-              >
-                <option value="">
-                  {schoolsLoading
-                    ? "Loading schools…"
-                    : schools.length === 0
-                    ? "No schools found"
-                    : "Select a school"}
-                </option>
-                {schools.map((s) => (
-                  <option key={s._id} value={s._id}>
-                    {s.schName}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1">
-              <label htmlFor="lf-session" className={labelClasses}>
-                Session
-              </label>
-              <select
-                id="lf-session"
-                value={session}
-                onChange={(e) => setSession(e.target.value)}
-                className={inputClasses}
-                disabled={sessionsLoading || sessions.length === 0}
-              >
-                <option value="">
-                  {sessionsLoading
-                    ? "Loading sessions…"
-                    : sessions.length === 0
-                    ? "No sessions found — add one from Dashboard"
-                    : "Select a session"}
-                </option>
-                {sessions.map((s) => (
-                  <option key={s._id} value={s._id}>
-                    {s.session}
-                  </option>
-                ))}
-              </select>
-            </div>
-
             <div className="space-y-1">
               <label htmlFor="lf-class" className={labelClasses}>
                 Select Class
@@ -309,6 +264,7 @@ function LateFinePage() {
           />
         </div>
       </SectionCard>
+      )}
     </div>
   );
 }

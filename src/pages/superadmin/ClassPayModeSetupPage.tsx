@@ -1,13 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Wallet, Plus, X } from "lucide-react";
 import { SectionCard } from "../../components/common/SectionCard";
-import { useEntityCrud } from "../../hooks/useEntityCrud";
 import { useSelectedSchool } from "../../hooks/useSelectedSchool";
+import { useSelectedSession } from "../../hooks/useSelectedSession";
 import { superAdminService } from "../../services/superadmin.service";
 import { schoolSettingService } from "../../services/schoolSetting.service";
 import { ApiError } from "../../types/api.types";
 import type {
-  School,
   SchClass,
   SchoolPayModeSetup,
   PayModeInstallment,
@@ -310,28 +309,9 @@ function SetupEntryRow({
 
 
 function ClassPayModeSetupPage() {
-  const { items: schools, isLoading: schoolsLoading } = useEntityCrud<
-    School,
-    never
-  >({
-    fetchList: () => superAdminService.getSchools().then((res) => res.schools ?? []),
-    create: () => Promise.resolve(),
-  });
-
-  const { items: sessions, isLoading: sessionsLoading } = useEntityCrud<
-    { _id: string; session: string },
-    never
-  >({
-    fetchList: () => superAdminService.getSessions().then((res) => res.sessions ?? []),
-    create: () => Promise.resolve(),
-  });
-
-  // Auto-select the school the superAdmin is currently "working as" (set via
-  // the settings icon in the navbar, stored in localStorage) if there is one.
-  // The dropdown below still lets them switch to a different school.
-  const { selectedSchool: workspaceSchool } = useSelectedSchool();
-  const [schoolID, setSchoolID] = useState(() => workspaceSchool?.id ?? "");
-  const selectedSchool = useMemo(() => schools.find((s) => s._id === schoolID), [schools, schoolID]);
+  const { selectedSchool } = useSelectedSchool();
+  const { selectedSession } = useSelectedSession();
+  const schoolID = selectedSchool?.id ?? "";
 
   const [setups, setSetups] = useState<SchoolPayModeSetup[]>([]);
   const [setupsError, setSetupsError] = useState<string | null>(null);
@@ -339,7 +319,7 @@ function ClassPayModeSetupPage() {
   const [schClasses, setSchClasses] = useState<SchClass[]>([]);
   const [schClassesLoading, setSchClassesLoading] = useState(false);
 
-  const [session, setSession] = useState("");
+  const session = selectedSession?.name ?? "";
   const [draftRows, setDraftRows] = useState<DraftRow[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -359,14 +339,13 @@ function ClassPayModeSetupPage() {
   }, []);
 
   useEffect(() => {
-    setSession("");
     setDraftRows([]);
     setSaveError(null);
     loadSetups(schoolID);
   }, [schoolID, loadSetups]);
 
   function startNewSession() {
-    if (!schoolID || !session) return;
+    if (!schoolID || !session || draftRows.length > 0) return;
     setSchClassesLoading(true);
     setSaveError(null);
     schoolSettingService
@@ -452,7 +431,6 @@ function ClassPayModeSetupPage() {
       // unticked stay in the draft so they can be saved later.
       const remaining = draftRows.filter((r) => !r.included);
       setDraftRows(remaining);
-      if (remaining.length === 0) setSession("");
       loadSetups(schoolID);
     } catch (err) {
       setSaveError(err instanceof ApiError ? err.message : "Could not save. Please try again.");
@@ -483,36 +461,13 @@ function ClassPayModeSetupPage() {
 
       <SectionCard title="Class Pay Mode Setup" icon={Wallet}>
         <div className="space-y-1">
-          <label htmlFor="pm-school" className={labelClasses}>
-            Select School
-          </label>
-          <select
-            id="pm-school"
-            value={schoolID}
-            onChange={(e) => setSchoolID(e.target.value)}
-            className={inputClasses}
-            disabled={schoolsLoading || schools.length === 0}
-          >
-            <option value="">
-              {schoolsLoading ? "Loading schools…" : schools.length === 0 ? "No schools found" : "Select a school"}
-            </option>
-            {/* Keep the auto-selected school visible even before the full list has loaded. */}
-            {workspaceSchool &&
-              schoolID === workspaceSchool.id &&
-              !schools.some((s) => s._id === workspaceSchool.id) && (
-                <option value={workspaceSchool.id}>{workspaceSchool.name}</option>
-              )}
-            {schools.map((s) => (
-              <option key={s._id} value={s._id}>
-                {s.schName}
-              </option>
-            ))}
-          </select>
+          <label className={labelClasses}>Select School</label>
+          <div className={`${inputClasses} cursor-not-allowed bg-chalk/60 text-ink`}>{selectedSchool?.name}</div>
         </div>
 
-        {!schoolID ? (
+        {!schoolID || !session ? (
           <div className="py-8 text-center text-sm text-ink-soft">
-            Select a school above to view or set up its fee structure.
+            {!schoolID ? "Select a school" : "Select a session"} from the settings icon at the top right first.
           </div>
         ) : (
           <>
@@ -568,33 +523,12 @@ function ClassPayModeSetupPage() {
               {draftRows.length === 0 ? (
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                   <div className="flex-1 space-y-1">
-                    <label htmlFor="pm-session" className={labelClasses}>
-                      Session
-                    </label>
-                    <select
-                      id="pm-session"
-                      value={session}
-                      onChange={(e) => setSession(e.target.value)}
-                      className={inputClasses}
-                      disabled={sessionsLoading || sessions.length === 0}
-                    >
-                      <option value="">
-                        {sessionsLoading
-                          ? "Loading sessions…"
-                          : sessions.length === 0
-                          ? "No sessions found — add one from Dashboard"
-                          : "Select a session"}
-                      </option>
-                      {sessions.map((s) => (
-                        <option key={s._id} value={s.session}>
-                          {s.session}
-                        </option>
-                      ))}
-                    </select>
+                    <label className={labelClasses}>Session</label>
+                    <div className={`${inputClasses} cursor-not-allowed bg-chalk/60 text-ink`}>{session}</div>
                   </div>
                   <button
                     onClick={startNewSession}
-                    disabled={!session.trim() || schClassesLoading}
+                    disabled={schClassesLoading}
                     className="flex items-center justify-center gap-1.5 rounded-md bg-marigold px-4 py-2 text-sm font-medium text-chalkboard transition hover:bg-marigold-dark disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {schClassesLoading ? "Loading classes…" : "Load Classes"}
@@ -709,7 +643,7 @@ function ClassPayModeSetupPage() {
                         : `Save Fee Structure${includedCount > 0 ? ` (${includedCount})` : ""}`}
                     </button>
                     <button
-                      onClick={() => { setDraftRows([]); setSession(""); }}
+                      onClick={() => setDraftRows([])}
                       disabled={isSaving}
                       className="rounded-md border border-line px-4 py-2 text-sm text-ink-soft hover:text-ink"
                     >
