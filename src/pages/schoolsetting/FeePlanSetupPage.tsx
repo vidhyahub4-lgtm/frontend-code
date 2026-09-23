@@ -230,8 +230,8 @@ function FeePlanEditor({
                     <th className="py-3 px-4 whitespace-nowrap">Sl No</th>
                     <th className="py-3 px-4 whitespace-nowrap">Head Name</th>
                     {classes.map((c) => (
-                      <th key={c._id} className="py-3 px-4 text-center whitespace-nowrap">
-                        {c.className}
+                      <th key={c._id} className="py-3 px-4 text-center whitespace-nowrap" title={c.classInWord}>
+                        Class {c.className}
                       </th>
                     ))}
                   </tr>
