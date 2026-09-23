@@ -3,6 +3,7 @@ import { Clock, Plus, Trash2 } from "lucide-react";
 import { SectionCard } from "../../components/common/SectionCard";
 import { EntityTable } from "../../components/common/EntityTable";
 import { useEntityCrud } from "../../hooks/useEntityCrud";
+import { useSelectedSession } from "../../hooks/useSelectedSession";
 import { superAdminService } from "../../services/superadmin.service";
 import type { SchoolClass } from "../../types/superadmin.types";
 
@@ -46,7 +47,8 @@ function LateFineSetupPage() {
     create: () => Promise.resolve(),
   });
 
-  const [session, setSession] = useState("");
+  const { selectedSession } = useSelectedSession();
+  const session = selectedSession?.name ?? "";
   const [dayScholar, setDayScholar] = useState(true);
   const [dayScholarTransport, setDayScholarTransport] = useState(true);
   const [boarder, setBoarder] = useState(true);
@@ -112,9 +114,10 @@ function LateFineSetupPage() {
               <input
                 id="lf-session"
                 value={session}
-                onChange={(e) => setSession(e.target.value)}
-                placeholder="e.g. 2026-27"
-                className={inputClasses}
+                readOnly
+                disabled
+                placeholder="Select session from settings"
+                className={`${inputClasses} cursor-not-allowed bg-line/40 text-ink-soft`}
               />
             </div>
 
