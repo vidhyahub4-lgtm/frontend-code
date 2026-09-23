@@ -222,50 +222,57 @@ function FeePlanEditor({
         </p>
       ) : (
         <>
-          <div className="overflow-x-auto rounded-md border border-line">
-            <table className="w-full min-w-max text-left text-sm">
-              <thead>
-                <tr className="border-b border-line bg-cream/40 text-xs uppercase tracking-wide text-ink-soft">
-                  <th className="py-2 px-3 font-medium">SlNo</th>
-                  <th className="py-2 px-3 font-medium">Head Name</th>
-                  {classes.map((c) => (
-                    <th key={c._id} className="py-2 px-3 text-center font-medium">
-                      {c.className}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {feetypes.map((feetype, idx) => (
-                  <tr key={feetype}>
-                    <td className="py-2 px-3 text-ink-soft">{idx + 1}</td>
-                    <td className="py-2 px-3 font-medium capitalize">{feetype}</td>
+          <div className="overflow-hidden rounded-lg border border-line shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-max border-collapse text-left text-sm">
+                <thead>
+                  <tr className="bg-marigold/10 text-xs font-semibold uppercase tracking-wide text-marigold-dark">
+                    <th className="py-3 px-4 whitespace-nowrap">Sl No</th>
+                    <th className="py-3 px-4 whitespace-nowrap">Head Name</th>
                     {classes.map((c) => (
-                      <td key={c._id} className="py-1.5 px-2">
-                        <input
-                          type="number"
-                          min={0}
-                          value={amountFor(feetype, c._id)}
-                          onChange={(e) => setAmount(feetype, c._id, e.target.value)}
-                          placeholder="0"
-                          className={`${inputClasses} w-24`}
-                        />
+                      <th key={c._id} className="py-3 px-4 text-center whitespace-nowrap">
+                        {c.className}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {feetypes.map((feetype, idx) => (
+                    <tr
+                      key={feetype}
+                      className={idx % 2 === 1 ? "bg-cream/30" : "bg-white"}
+                    >
+                      <td className="py-2.5 px-4 text-ink-soft">{idx + 1}</td>
+                      <td className="py-2.5 px-4 font-medium capitalize text-ink">{feetype}</td>
+                      {classes.map((c) => (
+                        <td key={c._id} className="py-2 px-2.5">
+                          <input
+                            type="number"
+                            min={0}
+                            value={amountFor(feetype, c._id)}
+                            onChange={(e) => setAmount(feetype, c._id, e.target.value)}
+                            placeholder="0"
+                            className="w-24 rounded-md border border-line bg-white px-2.5 py-1.5 text-center text-sm text-ink transition focus:outline-none focus:ring-2 focus:ring-marigold/40 mx-auto block"
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-marigold/30 bg-marigold/10 font-semibold text-ink">
+                    <td className="py-3 px-4" colSpan={2}>
+                      Total
+                    </td>
+                    {classes.map((c) => (
+                      <td key={c._id} className="py-3 px-4 text-center text-marigold-dark">
+                        ₹{classTotal(c._id)}
                       </td>
                     ))}
                   </tr>
-                ))}
-                <tr className="bg-cream/40 font-medium">
-                  <td className="py-2 px-3" colSpan={2}>
-                    Total
-                  </td>
-                  {classes.map((c) => (
-                    <td key={c._id} className="py-2 px-3 text-center">
-                      {classTotal(c._id)}
-                    </td>
-                  ))}
-                </tr>
-              </tbody>
-            </table>
+                </tfoot>
+              </table>
+            </div>
           </div>
 
           {saveError && (
