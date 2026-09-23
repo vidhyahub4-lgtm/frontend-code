@@ -4,9 +4,8 @@ import { SectionCard } from "../../components/common/SectionCard";
 import { useSelectedSchool } from "../../hooks/useSelectedSchool";
 import { useSelectedSession } from "../../hooks/useSelectedSession";
 import { schoolSettingService } from "../../services/schoolSetting.service";
-import { superAdminService } from "../../services/superadmin.service";
 import { ApiError } from "../../types/api.types";
-import type { Session, SchClass } from "../../types/superadmin.types";
+import type { SchClass } from "../../types/superadmin.types";
 
 const inputClasses =
   "w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-marigold/40";
@@ -208,11 +207,6 @@ function RegistrationForm({ schId, schCode }: { schId: string; schCode: string }
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Sessions dropdown options (global list).
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [sessionsLoading, setSessionsLoading] = useState(true);
-  const [sessionsError, setSessionsError] = useState<string | null>(null);
-
   // "Class Applying For" dropdown options — classes assigned to this school
   // (Class/Section Setup). The value submitted is the global Class's _id
   // (classApplyfor now stores a Class ObjectId, not free text — backend
@@ -221,32 +215,9 @@ function RegistrationForm({ schId, schCode }: { schId: string; schCode: string }
   const [schClassesLoading, setSchClassesLoading] = useState(true);
   const [schClassesError, setSchClassesError] = useState<string | null>(null);
 
-  // The form's session starts as the globally selected one, and the user may
-  // override it here. The override remembers which global session it was made
-  // against, so when the global selection changes (Save in the settings
-  // panel) the form follows the new global session again.
-  const [override, setOverride] = useState<{ forGlobalId: string; value: string } | null>(null);
-  const sessionId =
-    override && override.forGlobalId === globalSessionId ? override.value : globalSessionId;
-
-  useEffect(() => {
-    let cancelled = false;
-    superAdminService
-      .getSessions()
-      .then((res) => {
-        if (!cancelled) setSessions(res.sessions ?? []);
-      })
-      .catch((err) => {
-        if (!cancelled)
-          setSessionsError(err instanceof ApiError ? err.message : "Could not load sessions.");
-      })
-      .finally(() => {
-        if (!cancelled) setSessionsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // Session is non-editable here: it always follows the globally selected
+  // session (settings panel), same as the school it belongs to.
+  const sessionId = globalSessionId;
 
   useEffect(() => {
     let cancelled = false;
@@ -384,24 +355,15 @@ function RegistrationForm({ schId, schCode }: { schId: string; schCode: string }
               className={`${inputClasses} cursor-not-allowed bg-chalk/60 text-ink-soft`}
             />
           </Field>
-          <Field id="reg-session" label="Session" required error={errors.session ?? sessionsError ?? undefined}>
-            <select
+          <Field id="reg-session" label="Session" required error={errors.session ?? undefined}>
+            <input
               id="reg-session"
-              value={sessionId}
-              onChange={(e) => {
-                setOverride({ forGlobalId: globalSessionId, value: e.target.value });
-                setErrors((prev) => ({ ...prev, session: undefined }));
-              }}
-              disabled={sessionsLoading}
-              className={cls("session")}
-            >
-              <option value="">{sessionsLoading ? "Loading sessions…" : "Select a session"}</option>
-              {sessions.map((session) => (
-                <option key={session._id} value={session._id}>
-                  {session.session}
-                </option>
-              ))}
-            </select>
+              value={selectedSession?.name ?? ""}
+              readOnly
+              disabled
+              placeholder="Select session from settings"
+              className={`${inputClasses} cursor-not-allowed bg-line/40 text-ink-soft`}
+            />
           </Field>
           <Field id="reg-registrationdate" label="Registration Date">
             <input
