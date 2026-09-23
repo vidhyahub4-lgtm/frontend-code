@@ -147,7 +147,19 @@ function FeePlanEditor({
       }));
 
       if (existingPlan) {
-        await schoolSettingService.updateFeePlanSetup(existingPlan._id, {
+        // A plan already exists for this school+session+headType. Call POST
+        // first: it's safe to call again on an existing plan — it syncs in
+        // any class or fee head added *after* the plan was created (e.g. a
+        // new class) instead of erroring, which the PATCH below does not
+        // handle on its own. Then PATCH pushes the amounts actually edited
+        // in this save.
+        const synced = await schoolSettingService.createFeePlanSetup({
+          schId,
+          session: sessionId,
+          headType,
+          classes: classesPayload,
+        });
+        await schoolSettingService.updateFeePlanSetup(synced.data._id, {
           headType,
           schId,
           classes: classesPayload,
@@ -159,10 +171,11 @@ function FeePlanEditor({
           headType,
           classes: classesPayload,
         });
-        // Refresh so the next save for this headType updates instead of re-creating.
-        const plans = await schoolSettingService.getFeePlanSetups(schId);
-        setExistingPlans(plans.data ?? []);
       }
+      // Refresh so a newly-created plan's next save updates instead of
+      // re-creating, and so newly-synced classes show up immediately.
+      const plans = await schoolSettingService.getFeePlanSetups(schId);
+      setExistingPlans(plans.data ?? []);
       setSaveMessage("Fee plan saved.");
     } catch (err) {
       setSaveError(err instanceof ApiError ? err.message : "Could not save fee plan.");

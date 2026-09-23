@@ -371,6 +371,15 @@ export interface GetFeePlanSetupsResponse {
   data: FeePlanSetup[];
 }
 
+/** POST /school-settings/create-feeplansetup returns the (created or
+ * class/head-synced) plan document, so the caller can chain a PATCH with
+ * its _id without a separate list refetch. */
+export interface CreateFeePlanSetupResponse {
+  success: boolean;
+  message: string;
+  data: FeePlanSetup;
+}
+
 // ---- Super Admin: Fee Setting -> Late Fine Setup ----
 // Must match the backend enum exactly (models/super-admin/lateFineSetup.js) —
 // note "dialy" is a typo in the backend enum, kept as-is so the value round-trips.

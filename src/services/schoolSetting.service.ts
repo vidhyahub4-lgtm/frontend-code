@@ -8,6 +8,7 @@ import type {
   CreateSchClassRequest,
   GetSchClassesResponse,
   CreateFeePlanSetupRequest,
+  CreateFeePlanSetupResponse,
   GetFeePlanSetupsResponse,
   UpdateFeePlanSetupRequest,
 } from "../types/superadmin.types";
@@ -47,7 +48,7 @@ export const schoolSettingService = {
 
   // ---- Fee Setting: Fee Plan Setup ----
   createFeePlanSetup(payload: CreateFeePlanSetupRequest) {
-    return apiRequest<ApiAckResponse>("/school-settings/create-feeplansetup", {
+    return apiRequest<CreateFeePlanSetupResponse>("/school-settings/create-feeplansetup", {
       method: "POST",
       body: payload,
     });
