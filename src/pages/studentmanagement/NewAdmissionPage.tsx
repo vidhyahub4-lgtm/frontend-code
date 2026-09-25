@@ -495,6 +495,11 @@ function NewAdmissionContent({ schId, sessionId }: { schId: string; sessionId: s
                 Search and find a registered student above before saving an admission.
               </p>
             )}
+            {alreadyAdmitted && !submitError && (
+              <p className="flex items-center gap-1.5 text-xs text-amber-700">
+                <AlertCircle size={13} /> This student is already admitted — search a different, pending registration to admit them.
+              </p>
+            )}
           </div>
         </SectionCard>
       </div>
