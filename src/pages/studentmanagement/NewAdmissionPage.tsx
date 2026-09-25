@@ -17,6 +17,7 @@ import { SectionCard } from "../../components/common/SectionCard";
 import { useSelectedSchool } from "../../hooks/useSelectedSchool";
 import { useSelectedSession } from "../../hooks/useSelectedSession";
 import { schoolSettingService } from "../../services/schoolSetting.service";
+import { superAdminService } from "../../services/superadmin.service";
 import { ApiError } from "../../types/api.types";
 import type { RegisteredStudent } from "../../types/studentRegistration.types";
 import type { SchClass } from "../../types/superadmin.types";
@@ -130,10 +131,38 @@ function NewAdmissionContent({ schId, sessionId }: { schId: string; sessionId: s
 
   // Fields that only exist as UI placeholders for now — the admission API
   // doesn't take these yet, so they aren't sent anywhere.
-  const [feeType, setFeeType] = useState("");
   const [stream, setStream] = useState("NA");
-  const [house, setHouse] = useState("NA");
   const [group, setGroup] = useState("NA");
+
+  // Fee Type and House both have real backend list endpoints (used elsewhere
+  // in the app), so these are wired for real — just not sent by admitStudent.
+  const [feeType, setFeeType] = useState("");
+  const [feeTypeOptions, setFeeTypeOptions] = useState<string[]>([]);
+  const [house, setHouse] = useState("");
+  const [houseOptions, setHouseOptions] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    superAdminService
+      .getFeePlanTypes(schId)
+      .then((res) => {
+        if (!cancelled) setFeeTypeOptions(res.feePlans.flatMap((p) => p.plan));
+      })
+      .catch(() => {
+        /* non-critical for admission itself; leave the dropdown empty */
+      });
+    schoolSettingService
+      .getSchHouse()
+      .then((res) => {
+        if (!cancelled) setHouseOptions([...new Set(res.schHouse.flatMap((h) => h.house))]);
+      })
+      .catch(() => {
+        /* non-critical for admission itself; leave the dropdown empty */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [schId]);
 
   const [enableTransport, setEnableTransport] = useState(false);
   const [enableHostel, setEnableHostel] = useState(false);
@@ -341,7 +370,12 @@ function NewAdmissionContent({ schId, sessionId }: { schId: string; sessionId: s
             <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-3">
               <div className="space-y-1">
                 <label htmlFor="feeType" className={labelClasses}>Fee Type</label>
-                <input id="feeType" value={feeType} onChange={(e) => setFeeType(e.target.value)} className={inputClasses} />
+                <select id="feeType" value={feeType} onChange={(e) => setFeeType(e.target.value)} className={inputClasses}>
+                  <option value="">Select fee type</option>
+                  {feeTypeOptions.map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
               </div>
               <div className="space-y-1">
                 <label htmlFor="stream" className={labelClasses}>Stream</label>
@@ -361,7 +395,10 @@ function NewAdmissionContent({ schId, sessionId }: { schId: string; sessionId: s
               <div className="space-y-1">
                 <label htmlFor="house" className={labelClasses}>House</label>
                 <select id="house" value={house} onChange={(e) => setHouse(e.target.value)} className={inputClasses}>
-                  <option value="NA">NA</option>
+                  <option value="">Select house</option>
+                  {houseOptions.map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
                 </select>
               </div>
               <div className="space-y-1">
@@ -375,8 +412,8 @@ function NewAdmissionContent({ schId, sessionId }: { schId: string; sessionId: s
               </button>
             </div>
             <p className="text-xs text-ink-soft">
-              Fee Type, Stream, House, Group and the buttons above aren't backed by an API yet — left as
-              placeholders until that endpoint exists.
+              Stream, Group and the buttons above aren't backed by an API yet — left as placeholders
+              until those endpoints exist.
             </p>
           </div>
         </SectionCard>

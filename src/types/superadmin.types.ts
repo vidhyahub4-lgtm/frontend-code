@@ -107,6 +107,20 @@ export interface GetFeeHeadSetupsResponse {
   feeHeads: FeeHeadSetup[];
 }
 
+/** One document per school; `house` holds ALL house names for that school. */
+export interface SchHouse {
+  _id: string;
+  house: string[];
+  schId: string;
+  createdAt?: string;
+}
+
+export interface GetSchHouseResponse {
+  success: boolean;
+  message: string;
+  schHouse: SchHouse[];
+}
+
 /** One document per school; `plan` holds ALL plan names for that school. */
 export interface FeePlanType {
   _id: string;

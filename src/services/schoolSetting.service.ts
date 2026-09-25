@@ -14,6 +14,7 @@ import type {
   CreateFeePlanSetupResponse,
   GetFeePlanSetupsResponse,
   UpdateFeePlanSetupRequest,
+  GetSchHouseResponse,
 } from "../types/superadmin.types";
 
 export const schoolSettingService = {
@@ -48,6 +49,13 @@ export const schoolSettingService = {
     return apiRequest<AdmitStudentResponse>("/school-settings/stud-admission", {
       method: "POST",
       body: payload,
+    });
+  },
+  // NOTE: backend's getSchHouse doesn't actually filter by schId (returns every
+  // school's houses) — a backend bug, not something fixable from here.
+  getSchHouse() {
+    return apiRequest<GetSchHouseResponse>("/school-settings/get-sch-house", {
+      method: "GET",
     });
   },
 
