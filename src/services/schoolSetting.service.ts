@@ -3,6 +3,9 @@ import type { ApiAckResponse } from "../types/api.types";
 import type {
   CreateNewRegistrationResponse,
   GetAllNewRegistrationsResponse,
+  GetRegisteredStudentByIdResponse,
+  AdmitStudentRequest,
+  AdmitStudentResponse,
 } from "../types/studentRegistration.types";
 import type {
   CreateSchClassRequest,
@@ -30,6 +33,23 @@ export const schoolSettingService = {
     );
   },
 
+  // ---- Student Management: Admission ----
+  // NOTE: the backend route is GET /school-settings/get-register-studbyid but the
+  // controller currently reads `regno`/`schId` off req.body. A browser's fetch()
+  // throws if you attach a body to a GET request, so that controller needs to be
+  // updated to read from req.query (regno/schId) for this call to work end to end.
+  getRegisteredStudentById(regno: string, schId: string) {
+    return apiRequest<GetRegisteredStudentByIdResponse>(
+      `/school-settings/get-register-studbyid?regno=${encodeURIComponent(regno)}&schId=${encodeURIComponent(schId)}`,
+      { method: "GET" }
+    );
+  },
+  admitStudent(payload: AdmitStudentRequest) {
+    return apiRequest<AdmitStudentResponse>("/school-settings/stud-admission", {
+      method: "POST",
+      body: payload,
+    });
+  },
 
   // ---- Class/Section Setup (maps a global Class+Section to a School) ----
   createSchClass(payload: CreateSchClassRequest) {

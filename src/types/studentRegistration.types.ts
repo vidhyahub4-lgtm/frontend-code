@@ -45,6 +45,8 @@ export interface RegisteredStudent {
   registrationdate?: string;
   /** File name only; served from <apiBaseUrl>/uploads/studentImage/<Image> */
   Image?: string;
+  status?: "pending" | "admitted" | "rejected";
+  admdate?: string;
   createdAt?: string;
 }
 
@@ -53,4 +55,45 @@ export interface GetAllNewRegistrationsResponse {
   message: string;
   count: number;
   data: RegisteredStudent[];
+}
+
+/** Response of GET /school-settings/get-register-studbyid?regno=&schId= */
+export interface GetRegisteredStudentByIdResponse {
+  success: boolean;
+  message: string;
+  data: RegisteredStudent | null;
+}
+
+/** Request body of POST /school-settings/stud-admission */
+export interface AdmitStudentRequest {
+  /** NOT the human-readable regno — this is the registration document's own `_id`. */
+  regno: string;
+  admno: string;
+  session: string;
+  classID: string;
+  sectionId: string;
+  rollNo?: string;
+  admissionDate?: string;
+  schId: string;
+}
+
+export interface AdmitStudentResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    student: {
+      _id: string;
+      admno: string;
+      regno: string;
+      admissionSession: string;
+      admissionDate: string;
+    };
+    enrollment: {
+      _id: string;
+      classID: string;
+      sectionId: string;
+      rollNo?: string;
+    };
+    demandsCreated?: unknown;
+  };
 }
