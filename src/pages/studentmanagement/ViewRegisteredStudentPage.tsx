@@ -9,6 +9,7 @@ import { schoolSettingService } from "../../services/schoolSetting.service";
 import { superAdminService } from "../../services/superadmin.service";
 import { ApiError } from "../../types/api.types";
 import type { RegisteredStudent } from "../../types/studentRegistration.types";
+import { getClassApplyforId } from "../../lib/classApplyfor";
 import type { Session, SchClass } from "../../types/superadmin.types";
 
 const inputClasses =
@@ -63,9 +64,8 @@ function RegisteredStudentsContent({ schId }: { schId: string }) {
 
   const [students, setStudents] = useState<RegisteredStudent[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
-  // classApplyfor on a registration is now a Class ObjectId (not a readable
-  // name — the backend's getAlNewReg doesn't populate it), so we resolve it
-  // ourselves against this school's assigned classes.
+  // classApplyfor is { classID, sectionID? } with raw ObjectIds (the list API
+  // doesn't populate it), so we resolve the name against this school's classes.
   const [schClasses, setSchClasses] = useState<SchClass[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -162,7 +162,7 @@ function RegisteredStudentsContent({ schId }: { schId: string }) {
             s.whatAppno,
             s.adharId,
             s.email,
-            s.classApplyfor ? classNames.get(s.classApplyfor) ?? "" : "",
+            classNames.get(getClassApplyforId(s.classApplyfor)) ?? "",
             s.religion,
             s.category,
             sessionNames.get(s.session) ?? "",
@@ -194,7 +194,7 @@ function RegisteredStudentsContent({ schId }: { schId: string }) {
     const rows = filtered.map((s) => [
       s.regno, formatDate(s.registrationdate), sessionName(s.session), s.sname, s.fname, s.mname,
       s.gname, capitalize(s.gender), s.category.toUpperCase(), s.dob ?? "", s.age, s.mob1,
-      s.mob2 ?? "", s.whatAppno, s.email ?? "", s.adharId ?? "", className(s.classApplyfor),
+      s.mob2 ?? "", s.whatAppno, s.email ?? "", s.adharId ?? "", className(getClassApplyforId(s.classApplyfor)),
     ]);
     const csv = [header, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n");
 
@@ -334,7 +334,7 @@ function RegisteredStudentsContent({ schId }: { schId: string }) {
               { header: "Gender", render: (item) => capitalize(item.gender) },
               { header: "DOB", render: (item) => formatDate(item.dob) },
               { header: "Mobile", render: (item) => item.mob1 },
-              { header: "Class Applying", render: (item) => className(item.classApplyfor) },
+              { header: "Class Applying", render: (item) => className(getClassApplyforId(item.classApplyfor)) },
             ]}
           />
 

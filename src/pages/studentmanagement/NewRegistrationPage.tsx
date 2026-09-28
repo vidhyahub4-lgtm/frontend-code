@@ -5,6 +5,7 @@ import { useSelectedSchool } from "../../hooks/useSelectedSchool";
 import { useSelectedSession } from "../../hooks/useSelectedSession";
 import { schoolSettingService } from "../../services/schoolSetting.service";
 import { ApiError } from "../../types/api.types";
+import { encodeClassApplyfor } from "../../lib/classApplyfor";
 import type { SchClass } from "../../types/superadmin.types";
 
 const inputClasses =
@@ -209,8 +210,7 @@ function RegistrationForm({ schId, schCode }: { schId: string; schCode: string }
 
   // "Class Applying For" dropdown options — classes assigned to this school
   // (Class/Section Setup). The value submitted is the global Class's _id
-  // (classApplyfor now stores a Class ObjectId, not free text — backend
-  // model: models/school-setting/newRegistration.js).
+  // (sent to the backend as JSON `{ classID }` — see lib/classApplyfor.ts).
   const [schClasses, setSchClasses] = useState<SchClass[]>([]);
   const [schClassesLoading, setSchClassesLoading] = useState(true);
   const [schClassesError, setSchClassesError] = useState<string | null>(null);
@@ -308,7 +308,9 @@ function RegistrationForm({ schId, schCode }: { schId: string; schCode: string }
     formData.append("session", sessionId);
     (Object.keys(values) as (keyof FormValues)[]).forEach((key) => {
       const value = values[key].trim();
-      if (value) formData.append(key, value); // skip empty optional fields
+      if (!value) return; // skip empty optional fields
+      // Backend JSON.parse()s this field and expects { classID, sectionID? }.
+      formData.append(key, key === "classApplyfor" ? encodeClassApplyfor(value) : value);
     });
     if (photo) formData.append("Image", photo.file);
 

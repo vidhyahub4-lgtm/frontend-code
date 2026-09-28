@@ -39,9 +39,15 @@ export interface RegisteredStudent {
   lper?: number;
   lsch?: string;
   lboard?: string;
-  /** Class `_id` (ref: "Class") — not populated by the backend. Resolve the
-   *  name via the school's assigned classes (schoolSettingService.getSchClasses). */
-  classApplyfor?: string;
+  /** Backend shape: `{ classID, sectionID? }`. The list API returns raw ObjectIds,
+   *  the by-id API returns populated objects. A plain string is the legacy shape.
+   *  Use `getClassApplyforId` (lib/classApplyfor.ts) to read the class id. */
+  classApplyfor?:
+    | string
+    | {
+        classID?: string | { _id: string; className?: string; classInWord?: string };
+        sectionID?: string | { _id: string; sectionName?: string };
+      };
   registrationdate?: string;
   /** File name only; served from <apiBaseUrl>/uploads/studentImage/<Image> */
   Image?: string;
