@@ -1,12 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
-  Bus,
   CheckCircle2,
   GraduationCap,
   Loader2,
-  Mail,
-  MessageSquare,
   Save,
   School,
   Search,
@@ -32,19 +29,6 @@ const secondaryButtonClasses =
   "flex items-center justify-center gap-1.5 rounded-md border border-line bg-white px-3 py-2 text-sm font-medium text-ink transition hover:bg-chalk disabled:cursor-not-allowed disabled:opacity-60";
 const primaryButtonClasses =
   "flex items-center justify-center gap-1.5 rounded-md bg-marigold px-3 py-2 text-sm font-medium text-chalkboard transition hover:bg-marigold-dark disabled:cursor-not-allowed disabled:opacity-60";
-
-interface FeeHeadRow {
-  id: number;
-  headName: string;
-  amount: string;
-  exempt: boolean;
-  concession: string;
-}
-
-const EMPTY_FEE_ROWS: FeeHeadRow[] = [
-  { id: 1, headName: "Admission Fee", amount: "0", exempt: false, concession: "0" },
-  { id: 2, headName: "Monthly Tuition Fee", amount: "0", exempt: false, concession: "0" },
-];
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -129,23 +113,6 @@ function NewAdmissionContent({ schId, sessionId }: { schId: string; sessionId: s
     setSelectedClassID(classID);
     setSelectedSectionId(""); // section list depends on the class, so reset it
   }
-
-  const [enableTransport, setEnableTransport] = useState(false);
-  const [enableHostel, setEnableHostel] = useState(false);
-
-  const [feeRows] = useState<FeeHeadRow[]>(EMPTY_FEE_ROWS);
-
-  const totals = useMemo(() => {
-    const admissionFee = Number(feeRows.find((r) => r.headName === "Admission Fee")?.amount || 0);
-    const monthlyFee = feeRows
-      .filter((r) => r.headName !== "Admission Fee")
-      .reduce((sum, r) => sum + Number(r.amount || 0), 0);
-    const totalConcession = feeRows.reduce((sum, r) => sum + Number(r.concession || 0), 0);
-    const exempted = feeRows
-      .filter((r) => r.exempt)
-      .reduce((sum, r) => sum + Number(r.amount || 0), 0);
-    return { admissionFee, monthlyFee, totalConcession, exempted };
-  }, [feeRows]);
 
   // ---- Save Admission ----
   const [submitting, setSubmitting] = useState(false);
@@ -376,100 +343,14 @@ function NewAdmissionContent({ schId, sessionId }: { schId: string; sessionId: s
         </SectionCard>
       </div>
 
-      <SectionCard title="Transport or Hostel Allotment" icon={Bus}>
-        <div className="flex flex-wrap gap-6">
-          <label className="flex items-center gap-1.5 text-sm text-ink">
-            <input type="checkbox" checked={enableTransport} onChange={(e) => setEnableTransport(e.target.checked)} className="h-3.5 w-3.5 accent-marigold" />
-            Enable Transport
-          </label>
-          <label className="flex items-center gap-1.5 text-sm text-ink">
-            <input type="checkbox" checked={enableHostel} onChange={(e) => setEnableHostel(e.target.checked)} className="h-3.5 w-3.5 accent-marigold" />
-            Enable Hostel
-          </label>
-        </div>
-        <p className="mt-3 text-xs text-ink-soft">Not backed by an API yet — left as a placeholder.</p>
-      </SectionCard>
-
-      <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
-        <SectionCard title="Admission Fee Head / Monthly Fee Head" icon={Wallet}>
-          <div className="space-y-3">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-soft">
-                    <th className="py-2 pr-3 font-medium">SNo</th>
-                    <th className="py-2 pr-3 font-medium">Head Name</th>
-                    <th className="py-2 pr-3 font-medium">Amount</th>
-                    <th className="py-2 pr-3 font-medium">Exempt</th>
-                    <th className="py-2 pr-3 font-medium">Cons.</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
-                  {feeRows.map((row, index) => (
-                    <tr key={row.id}>
-                      <td className="py-2 pr-3">{index + 1}</td>
-                      <td className="py-2 pr-3">{row.headName}</td>
-                      <td className="py-2 pr-3">{row.amount}</td>
-                      <td className="py-2 pr-3">{row.exempt ? "Yes" : "No"}</td>
-                      <td className="py-2 pr-3">{row.concession}</td>
-                    </tr>
-                  ))}
-                  <tr className="font-medium text-ink">
-                    <td className="py-2 pr-3" colSpan={2}>Total</td>
-                    <td className="py-2 pr-3">{totals.admissionFee + totals.monthlyFee}</td>
-                    <td className="py-2 pr-3">{totals.exempted}</td>
-                    <td className="py-2 pr-3">{totals.totalConcession}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <p className="border-t border-line pt-3 text-xs text-ink-soft">
-              Fee heads and amounts are generated automatically from the class's fee plan once admission is
-              saved — this table is a read-only preview, not something submitted from here.
-            </p>
-          </div>
-        </SectionCard>
-
-        <SectionCard title="Final Payment Amount & Payment Modes" icon={Wallet}>
-          <div className="space-y-4">
-            <p className="text-xs text-ink-soft">
-              Fee collection happens as a separate step after admission (via Fee Collection), so payment
-              details aren't collected on this screen yet.
-            </p>
-            <div className="grid grid-cols-2 gap-3 opacity-60">
-              <div className="space-y-1">
-                <label className={labelClasses}>Payment Mode</label>
-                <select disabled className={inputClasses}>
-                  <option>By Cash</option>
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className={labelClasses}>Ref No.</label>
-                <input disabled placeholder="—" className={inputClasses} />
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-5 border-t border-line pt-3 opacity-60">
-              <label className="flex items-center gap-1.5 text-sm text-ink-soft">
-                <input type="checkbox" disabled className="h-3.5 w-3.5 accent-marigold" />
-                <MessageSquare size={14} /> SMS
-              </label>
-              <label className="flex items-center gap-1.5 text-sm text-ink-soft">
-                <input type="checkbox" disabled className="h-3.5 w-3.5 accent-marigold" />
-                WhatsApp
-              </label>
-              <label className="flex items-center gap-1.5 text-sm text-ink-soft">
-                <input type="checkbox" disabled className="h-3.5 w-3.5 accent-marigold" />
-                <Mail size={14} /> Email
-              </label>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleSaveAdmission}
-              disabled={!canSubmit || submitting}
-              className={primaryButtonClasses}
-            >
+      <SectionCard title="Save Admission" icon={Save}>
+        <div className="space-y-3">
+          <button
+            type="button"
+            onClick={handleSaveAdmission}
+            disabled={!canSubmit || submitting}
+            className={primaryButtonClasses}
+          >
               {submitting ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
               Save Admission
             </button>
@@ -530,7 +411,6 @@ function NewAdmissionContent({ schId, sessionId }: { schId: string; sessionId: s
             )}
           </div>
         </SectionCard>
-      </div>
 
       {feeStudentId && (
         <AdmissionFeeCollectionCard
