@@ -14,8 +14,10 @@ import {
   Wallet,
 } from "lucide-react";
 import { SectionCard } from "../../components/common/SectionCard";
+import { AdmissionFeeCollectionCard } from "../../components/studentmanagement/AdmissionFeeCollectionCard";
 import { useSelectedSchool } from "../../hooks/useSelectedSchool";
 import { useSelectedSession } from "../../hooks/useSelectedSession";
+import { feeService } from "../../services/fee.service";
 import { schoolSettingService } from "../../services/schoolSetting.service";
 import { superAdminService } from "../../services/superadmin.service";
 import { ApiError } from "../../types/api.types";
@@ -189,9 +191,45 @@ function NewAdmissionContent({ schId, sessionId }: { schId: string; sessionId: s
   const alreadyAdmitted = foundRegistration?.status === "admitted";
   const canSubmit = Boolean(foundRegistration) && !alreadyAdmitted;
 
+  // ---- Admission fee (shown once we know which StudentAdmission to collect
+  // against — either straight from a fresh admit, or resolved below when the
+  // registration turns out to already be admitted). ----
+  const [feeStudentId, setFeeStudentId] = useState<string | null>(null);
+  const [resolvingFeeStudent, setResolvingFeeStudent] = useState(false);
+  const [resolveFeeError, setResolveFeeError] = useState<string | null>(null);
+
+  // Any admission failure (409 already-admitted, network error, etc.) offers
+  // this button so the front desk can still get to fee collection instead of
+  // being stuck — most commonly the "already admitted, payment pending" case.
+  async function handleGetAdmissionFee() {
+    if (!foundRegistration) return;
+    setResolveFeeError(null);
+    setResolvingFeeStudent(true);
+    try {
+      const res = await feeService.getEnrollmentList(schId, sessionId);
+      const match = res.data.find((row) => {
+        const regnoId = typeof row.studentId.regno === "string" ? row.studentId.regno : row.studentId.regno?._id;
+        return regnoId === foundRegistration._id;
+      });
+      if (!match) {
+        setResolveFeeError(
+          "This student's admission record wasn't found for the selected session. They may be admitted under a different session."
+        );
+        return;
+      }
+      setFeeStudentId(match.studentId._id);
+    } catch (err) {
+      setResolveFeeError(errorMessage(err, "Could not look up this student's admission record."));
+    } finally {
+      setResolvingFeeStudent(false);
+    }
+  }
+
   async function handleSaveAdmission() {
     setSubmitError(null);
     setSubmitSuccess(null);
+    setFeeStudentId(null);
+    setResolveFeeError(null);
 
     if (!foundRegistration) {
       setSubmitError("Search and select a registered student first.");
@@ -220,6 +258,9 @@ function NewAdmissionContent({ schId, sessionId }: { schId: string; sessionId: s
       });
       setSubmitSuccess(res.message || "Student admitted successfully.");
       setFoundRegistration({ ...foundRegistration, status: "admitted" as RegisteredStudent["status"] });
+      // The admit response already has the StudentAdmission _id — no need to
+      // look it up separately for a fresh admission.
+      if (res.data?.student?._id) setFeeStudentId(res.data.student._id);
     } catch (err) {
       setSubmitError(errorMessage(err, "Could not save this admission. Please try again."));
     } finally {
@@ -518,9 +559,25 @@ function NewAdmissionContent({ schId, sessionId }: { schId: string; sessionId: s
             </button>
 
             {submitError && (
-              <p className="flex items-center gap-1.5 text-xs text-red-600">
-                <AlertCircle size={13} /> {submitError}
-              </p>
+              <div className="space-y-2">
+                <p className="flex items-center gap-1.5 text-xs text-red-600">
+                  <AlertCircle size={13} /> {submitError}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleGetAdmissionFee}
+                  disabled={resolvingFeeStudent}
+                  className={secondaryButtonClasses}
+                >
+                  {resolvingFeeStudent ? <Loader2 size={14} className="animate-spin" /> : <Wallet size={14} />}
+                  Get Admission Fee
+                </button>
+                {resolveFeeError && (
+                  <p className="flex items-center gap-1.5 text-xs text-red-600">
+                    <AlertCircle size={13} /> {resolveFeeError}
+                  </p>
+                )}
+              </div>
             )}
             {submitSuccess && (
               <p className="flex items-center gap-1.5 text-xs text-emerald-700">
@@ -533,13 +590,40 @@ function NewAdmissionContent({ schId, sessionId }: { schId: string; sessionId: s
               </p>
             )}
             {alreadyAdmitted && !submitError && (
-              <p className="flex items-center gap-1.5 text-xs text-amber-700">
-                <AlertCircle size={13} /> This student is already admitted — search a different, pending registration to admit them.
-              </p>
+              <div className="space-y-2">
+                <p className="flex items-center gap-1.5 text-xs text-amber-700">
+                  <AlertCircle size={13} /> This student is already admitted. If their admission fee is still pending, collect it below.
+                </p>
+                {!feeStudentId && (
+                  <button
+                    type="button"
+                    onClick={handleGetAdmissionFee}
+                    disabled={resolvingFeeStudent}
+                    className={secondaryButtonClasses}
+                  >
+                    {resolvingFeeStudent ? <Loader2 size={14} className="animate-spin" /> : <Wallet size={14} />}
+                    Get Admission Fee
+                  </button>
+                )}
+                {resolveFeeError && (
+                  <p className="flex items-center gap-1.5 text-xs text-red-600">
+                    <AlertCircle size={13} /> {resolveFeeError}
+                  </p>
+                )}
+              </div>
             )}
           </div>
         </SectionCard>
       </div>
+
+      {feeStudentId && (
+        <AdmissionFeeCollectionCard
+          studentId={feeStudentId}
+          schId={schId}
+          sessionId={sessionId}
+          studentName={foundRegistration?.sname}
+        />
+      )}
     </>
   );
 }
