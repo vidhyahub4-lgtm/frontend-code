@@ -19,7 +19,6 @@ import { useSelectedSchool } from "../../hooks/useSelectedSchool";
 import { useSelectedSession } from "../../hooks/useSelectedSession";
 import { feeService } from "../../services/fee.service";
 import { schoolSettingService } from "../../services/schoolSetting.service";
-import { superAdminService } from "../../services/superadmin.service";
 import { ApiError } from "../../types/api.types";
 import type { RegisteredStudent } from "../../types/studentRegistration.types";
 import type { SchClass } from "../../types/superadmin.types";
@@ -130,41 +129,6 @@ function NewAdmissionContent({ schId, sessionId }: { schId: string; sessionId: s
     setSelectedClassID(classID);
     setSelectedSectionId(""); // section list depends on the class, so reset it
   }
-
-  // Fields that only exist as UI placeholders for now — the admission API
-  // doesn't take these yet, so they aren't sent anywhere.
-  const [stream, setStream] = useState("NA");
-  const [group, setGroup] = useState("NA");
-
-  // Fee Type and House both have real backend list endpoints (used elsewhere
-  // in the app), so these are wired for real — just not sent by admitStudent.
-  const [feeType, setFeeType] = useState("");
-  const [feeTypeOptions, setFeeTypeOptions] = useState<string[]>([]);
-  const [house, setHouse] = useState("");
-  const [houseOptions, setHouseOptions] = useState<string[]>([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    superAdminService
-      .getFeePlanTypes(schId)
-      .then((res) => {
-        if (!cancelled) setFeeTypeOptions(res.feePlans.flatMap((p) => p.plan));
-      })
-      .catch(() => {
-        /* non-critical for admission itself; leave the dropdown empty */
-      });
-    schoolSettingService
-      .getSchHouse()
-      .then((res) => {
-        if (!cancelled) setHouseOptions([...new Set(res.schHouse.flatMap((h) => h.house))]);
-      })
-      .catch(() => {
-        /* non-critical for admission itself; leave the dropdown empty */
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [schId]);
 
   const [enableTransport, setEnableTransport] = useState(false);
   const [enableHostel, setEnableHostel] = useState(false);
@@ -349,7 +313,7 @@ function NewAdmissionContent({ schId, sessionId }: { schId: string; sessionId: s
           </div>
         </SectionCard>
 
-        <SectionCard title="Admission Class & Fee Type Selection" icon={GraduationCap}>
+        <SectionCard title="Admission Class Selection" icon={GraduationCap}>
           <div className="space-y-3">
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1">
@@ -408,54 +372,6 @@ function NewAdmissionContent({ schId, sessionId }: { schId: string; sessionId: s
               </div>
             </div>
 
-            <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-3">
-              <div className="space-y-1">
-                <label htmlFor="feeType" className={labelClasses}>Fee Type</label>
-                <select id="feeType" value={feeType} onChange={(e) => setFeeType(e.target.value)} className={inputClasses}>
-                  <option value="">Select fee type</option>
-                  {feeTypeOptions.map((opt) => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label htmlFor="stream" className={labelClasses}>Stream</label>
-                <select id="stream" value={stream} onChange={(e) => setStream(e.target.value)} className={inputClasses}>
-                  <option value="NA">NA</option>
-                  <option value="science">Science</option>
-                  <option value="commerce">Commerce</option>
-                  <option value="arts">Arts</option>
-                </select>
-              </div>
-              <button type="button" className={secondaryButtonClasses} disabled>
-                Add Subjects
-              </button>
-            </div>
-
-            <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-3">
-              <div className="space-y-1">
-                <label htmlFor="house" className={labelClasses}>House</label>
-                <select id="house" value={house} onChange={(e) => setHouse(e.target.value)} className={inputClasses}>
-                  <option value="">Select house</option>
-                  {houseOptions.map((opt) => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label htmlFor="group" className={labelClasses}>Group</label>
-                <select id="group" value={group} onChange={(e) => setGroup(e.target.value)} className={inputClasses}>
-                  <option value="NA">NA</option>
-                </select>
-              </div>
-              <button type="button" className={secondaryButtonClasses} disabled>
-                Add Siblings
-              </button>
-            </div>
-            <p className="text-xs text-ink-soft">
-              Stream, Group and the buttons above aren't backed by an API yet — left as placeholders
-              until those endpoints exist.
-            </p>
           </div>
         </SectionCard>
       </div>
