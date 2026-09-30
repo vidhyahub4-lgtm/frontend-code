@@ -19,6 +19,20 @@ const secondaryButtonClasses =
   "flex items-center justify-center gap-1.5 rounded-md border border-line bg-white px-3 py-2 text-sm font-medium text-ink transition hover:bg-chalk disabled:cursor-not-allowed disabled:opacity-60";
 
 const ALL_SESSIONS = "all";
+const ALL_STATUSES = "all";
+
+type RegistrationStatus = NonNullable<RegisteredStudent["status"]>;
+
+const STATUS_OPTIONS: { value: RegistrationStatus; label: string; badgeClasses: string }[] = [
+  { value: "pending", label: "Pending", badgeClasses: "bg-amber-100 text-amber-800" },
+  { value: "admitted", label: "Admitted", badgeClasses: "bg-green-100 text-green-800" },
+  { value: "rejected", label: "Rejected", badgeClasses: "bg-red-100 text-red-800" },
+];
+
+/** The backend defaults `status` to "pending", so a missing value (older records) means pending. */
+function statusOf(student: RegisteredStudent): RegistrationStatus {
+  return student.status ?? "pending";
+}
 
 type SearchKey = "name" | "fname" | "mname" | "mobile" | "aadhaar";
 
@@ -112,6 +126,7 @@ function RegisteredStudentsContent({ schId }: { schId: string }) {
   const [searchKey, setSearchKey] = useState<SearchKey>("name");
   const [searchValue, setSearchValue] = useState("");
   const [keyword, setKeyword] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>(ALL_STATUSES);
 
   const sessionNames = useMemo(
     () => new Map(sessions.map((session) => [session._id, session.session])),
@@ -134,6 +149,7 @@ function RegisteredStudentsContent({ schId }: { schId: string }) {
       .filter((s) => {
         if (sessionFilter !== ALL_SESSIONS && s.session !== sessionFilter) return false;
         if (regQuery && String(s.regno) !== regQuery) return false;
+        if (statusFilter !== ALL_STATUSES && statusOf(s) !== statusFilter) return false;
 
         const regDate = dateOnly(s.registrationdate);
         if (fromDate && (!regDate || regDate < fromDate)) return false;
@@ -174,7 +190,7 @@ function RegisteredStudentsContent({ schId }: { schId: string }) {
         return true;
       })
       .sort((a, b) => b.regno - a.regno); // newest registration first
-  }, [students, sessionFilter, regNo, fromDate, toDate, searchKey, searchValue, keyword, sessionNames, classNames]);
+  }, [students, sessionFilter, statusFilter, regNo, fromDate, toDate, searchKey, searchValue, keyword, sessionNames, classNames]);
 
   function handleClearAll() {
     setSessionOverride({ forGlobalId: globalSessionId, value: ALL_SESSIONS });
@@ -183,18 +199,19 @@ function RegisteredStudentsContent({ schId }: { schId: string }) {
     setToDate("");
     setSearchValue("");
     setKeyword("");
+    setStatusFilter(ALL_STATUSES);
   }
 
   function handleExport() {
     const header = [
       "Reg No", "Reg Date", "Session", "Name", "Father Name", "Mother Name", "Guardian Name",
       "Gender", "Category", "DOB", "Age", "Mobile 1", "Mobile 2", "WhatsApp", "Email",
-      "Aadhaar", "Class Applying For",
+      "Aadhaar", "Class Applying For", "Status",
     ];
     const rows = filtered.map((s) => [
       s.regno, formatDate(s.registrationdate), sessionName(s.session), s.sname, s.fname, s.mname,
       s.gname, capitalize(s.gender), s.category.toUpperCase(), s.dob ?? "", s.age, s.mob1,
-      s.mob2 ?? "", s.whatAppno, s.email ?? "", s.adharId ?? "", className(getClassApplyforId(s.classApplyfor)),
+      s.mob2 ?? "", s.whatAppno, s.email ?? "", s.adharId ?? "", className(getClassApplyforId(s.classApplyfor)), capitalize(statusOf(s)),
     ]);
     const csv = [header, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n");
 
@@ -213,7 +230,7 @@ function RegisteredStudentsContent({ schId }: { schId: string }) {
       <div className="print:hidden">
         <SectionCard title="Search Registered Student" icon={Search}>
           <div className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
               <div className="space-y-1">
                 <label htmlFor="vr-session" className={labelClasses}>Session</label>
                 <select
@@ -226,6 +243,22 @@ function RegisteredStudentsContent({ schId }: { schId: string }) {
                   {sessions.map((session) => (
                     <option key={session._id} value={session._id}>
                       {session.session}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="vr-status" className={labelClasses}>Status</label>
+                <select
+                  id="vr-status"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className={inputClasses}
+                >
+                  <option value={ALL_STATUSES}>All statuses</option>
+                  {STATUS_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
                     </option>
                   ))}
                 </select>
@@ -335,6 +368,19 @@ function RegisteredStudentsContent({ schId }: { schId: string }) {
               { header: "DOB", render: (item) => formatDate(item.dob) },
               { header: "Mobile", render: (item) => item.mob1 },
               { header: "Class Applying", render: (item) => className(getClassApplyforId(item.classApplyfor)) },
+              {
+                header: "Status",
+                render: (item) => {
+                  const opt = STATUS_OPTIONS.find((o) => o.value === statusOf(item));
+                  return (
+                    <span
+                      className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${opt?.badgeClasses ?? ""}`}
+                    >
+                      {opt?.label ?? capitalize(statusOf(item))}
+                    </span>
+                  );
+                },
+              },
             ]}
           />
 
