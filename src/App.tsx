@@ -10,6 +10,7 @@ import InstitutionProfilePage from "./pages/superadmin/InstitutionProfilePage";
 import ClassSectionSetupPage from "./pages/schoolsetting/ClassSectionSetupPage";
 import FeePlanSetupPage from "./pages/schoolsetting/FeePlanSetupPage";
 import LateFinePage from "./pages/schoolsetting/LateFinePage";
+import SubjectSetupPage from "./pages/schoolsetting/SubjectSetupPage";
 import ClassPayModeSetupPage from "./pages/superadmin/ClassPayModeSetupPage";
 import FeeHeadSetupPage from "./pages/superadmin/FeeHeadSetupPage";
 import FeePlanTypePage from "./pages/superadmin/FeePlanTypePage";
@@ -49,6 +50,10 @@ function App() {
             <Route
               path="/school-setting/essential-setting/class-section-setup"
               element={<ClassSectionSetupPage />}
+            />
+            <Route
+              path="/school-setting/essential-setting/subject-setup"
+              element={<SubjectSetupPage />}
             />
             <Route
               path="/school-setting/fee-setting/fee-plan-setup"

@@ -16,6 +16,11 @@ import type {
   UpdateFeePlanSetupRequest,
   GetSchHouseResponse,
 } from "../types/superadmin.types";
+import type {
+  CreateSubjectRequest,
+  CreateSubjectResponse,
+  GetSubjectsResponse,
+} from "../types/subject.types";
 
 export const schoolSettingService = {
   // ---- Student Management: New Registration (multipart: fields + `Image` file) ----
@@ -71,6 +76,22 @@ export const schoolSettingService = {
     return apiRequest<GetSchClassesResponse>(
       `/school-settings/get-sch-class${query}`,
       { method: "GET" }
+    );
+  },
+
+  // ---- Essential Setting: Subject Setup ----
+  createSubject(payload: CreateSubjectRequest) {
+    return apiRequest<CreateSubjectResponse>("/school-settings/create-subject", {
+      method: "POST",
+      body: payload,
+    });
+  },
+  // NOTE: the backend route is POST (not GET) but the controller reads schId/session
+  // from the query string, so they go in the URL and no body is sent.
+  getSubjects(schId: string, session: string) {
+    return apiRequest<GetSubjectsResponse>(
+      `/school-settings/getAll-subject?schId=${encodeURIComponent(schId)}&session=${encodeURIComponent(session)}`,
+      { method: "POST" }
     );
   },
 
