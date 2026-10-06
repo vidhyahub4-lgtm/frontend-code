@@ -123,10 +123,10 @@ function NewAdmissionContent({ schId, sessionId }: { schId: string; sessionId: s
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
 
-  // Admission No is generated: registration no + last 2 digits of the current
-  // year (regno 10 in 2026 -> "1026"). Not editable.
+  // Admission No is generated as "<current year>/<registration no>"
+  // (regno 9 in 2026 -> "2026/9"). Not editable.
   const admno = foundRegistration
-    ? `${foundRegistration.regno}${String(new Date().getFullYear()).slice(-2)}`
+    ? `${new Date().getFullYear()}/${foundRegistration.regno}`
     : "";
   const alreadyAdmitted = foundRegistration?.status === "admitted";
   const canSubmit = Boolean(foundRegistration) && !alreadyAdmitted;
