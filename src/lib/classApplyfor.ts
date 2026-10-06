@@ -16,3 +16,10 @@ export function getClassApplyforId(value: RegisteredStudent["classApplyfor"]): s
   const c = value.classID;
   return typeof c === "string" ? c : (c?._id ?? "");
 }
+
+/** Section `_id` of a registration (empty if none was chosen), whichever shape the API returned. */
+export function getSectionApplyforId(value: RegisteredStudent["classApplyfor"]): string {
+  if (!value || typeof value === "string") return "";
+  const sec = value.sectionID;
+  return typeof sec === "string" ? sec : (sec?._id ?? "");
+}

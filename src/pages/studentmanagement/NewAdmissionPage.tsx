@@ -17,6 +17,7 @@ import { useSelectedSession } from "../../hooks/useSelectedSession";
 import { feeService } from "../../services/fee.service";
 import { schoolSettingService } from "../../services/schoolSetting.service";
 import { ApiError } from "../../types/api.types";
+import { getClassApplyforId, getSectionApplyforId } from "../../lib/classApplyfor";
 import type { RegisteredStudent } from "../../types/studentRegistration.types";
 import type { SchClass } from "../../types/superadmin.types";
 
@@ -59,10 +60,15 @@ function NewAdmissionContent({ schId, sessionId }: { schId: string; sessionId: s
     setSearching(true);
     setSearchError(null);
     setFoundRegistration(null);
+    setSelectedClassID("");
+    setSelectedSectionId("");
     try {
       const res = await schoolSettingService.getRegisteredStudentById(trimmed, schId);
       if (res.data) {
         setFoundRegistration(res.data);
+        // Pre-fill class/section chosen at registration (still editable).
+        setSelectedClassID(getClassApplyforId(res.data.classApplyfor));
+        setSelectedSectionId(getSectionApplyforId(res.data.classApplyfor));
       } else {
         setSearchError(res.message || `No registered student found with regno ${trimmed}.`);
       }
@@ -100,8 +106,6 @@ function NewAdmissionContent({ schId, sessionId }: { schId: string; sessionId: s
 
   const [selectedClassID, setSelectedClassID] = useState("");
   const [selectedSectionId, setSelectedSectionId] = useState("");
-  const [roll, setRoll] = useState("");
-  const [admno, setAdmno] = useState("");
   const [admissionDate, setAdmissionDate] = useState(todayISO());
 
   const selectedSchClass = useMemo(
@@ -119,6 +123,11 @@ function NewAdmissionContent({ schId, sessionId }: { schId: string; sessionId: s
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
 
+  // Admission No is generated: registration no + last 2 digits of the current
+  // year (regno 10 in 2026 -> "1026"). Not editable.
+  const admno = foundRegistration
+    ? `${foundRegistration.regno}${String(new Date().getFullYear()).slice(-2)}`
+    : "";
   const alreadyAdmitted = foundRegistration?.status === "admitted";
   const canSubmit = Boolean(foundRegistration) && !alreadyAdmitted;
 
@@ -166,10 +175,6 @@ function NewAdmissionContent({ schId, sessionId }: { schId: string; sessionId: s
       setSubmitError("Search and select a registered student first.");
       return;
     }
-    if (!admno.trim()) {
-      setSubmitError("Admission No is required.");
-      return;
-    }
     if (!selectedClassID || !selectedSectionId) {
       setSubmitError("Select both class and section.");
       return;
@@ -180,11 +185,10 @@ function NewAdmissionContent({ schId, sessionId }: { schId: string; sessionId: s
       const res = await schoolSettingService.admitStudent({
         schId,
         regno: foundRegistration._id,
-        admno: admno.trim(),
+        admno,
         session: sessionId,
         classID: selectedClassID,
         sectionId: selectedSectionId,
-        rollNo: roll.trim() || undefined,
         admissionDate,
       });
       setSubmitSuccess(res.message || "Student admitted successfully.");
@@ -282,7 +286,7 @@ function NewAdmissionContent({ schId, sessionId }: { schId: string; sessionId: s
 
         <SectionCard title="Admission Class Selection" icon={GraduationCap}>
           <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <label htmlFor="admClass" className={requiredLabelClasses}>Class</label>
                 <select
@@ -317,10 +321,6 @@ function NewAdmissionContent({ schId, sessionId }: { schId: string; sessionId: s
                   ))}
                 </select>
               </div>
-              <div className="space-y-1">
-                <label htmlFor="admRoll" className={labelClasses}>Roll</label>
-                <input id="admRoll" value={roll} onChange={(e) => setRoll(e.target.value)} className={inputClasses} />
-              </div>
             </div>
             {classesError && (
               <p className="flex items-center gap-1.5 text-xs text-red-600">
@@ -331,7 +331,7 @@ function NewAdmissionContent({ schId, sessionId }: { schId: string; sessionId: s
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <label htmlFor="admno" className={requiredLabelClasses}>Admission No</label>
-                <input id="admno" value={admno} onChange={(e) => setAdmno(e.target.value)} placeholder="Ex: 2451" className={inputClasses} />
+                <input id="admno" value={admno} readOnly placeholder="Auto-generated after search" className={readonlyInputClasses} />
               </div>
               <div className="space-y-1">
                 <label htmlFor="admDate" className={requiredLabelClasses}>Admission Date</label>
