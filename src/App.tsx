@@ -21,6 +21,7 @@ import LateFineSetupPage from "./pages/superadmin/LateFineSetupPage";
 import NewRegistrationPage from "./pages/studentmanagement/NewRegistrationPage";
 import ViewRegisteredStudentPage from "./pages/studentmanagement/ViewRegisteredStudentPage";
 import NewAdmissionPage from "./pages/studentmanagement/NewAdmissionPage";
+import AdmittedStudentsPage from "./pages/studentmanagement/AdmittedStudentsPage";
 import { AuthProvider } from "./context/AuthContext";
 import { ProtectedRoute } from "./routes/ProtectedRoute";
 import { AppLayout } from "./components/layout/AppLayout";
@@ -110,6 +111,10 @@ function App() {
             <Route
               path="/student-management/admission/new-admission"
               element={<NewAdmissionPage />}
+            />
+            <Route
+              path="/student-management/admission/admitted-students"
+              element={<AdmittedStudentsPage />}
             />
             {/* Sidebar links whose pages aren't built yet land here */}
             <Route path="*" element={<ComingSoonPage />} />
