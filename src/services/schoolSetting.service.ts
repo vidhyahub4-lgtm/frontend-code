@@ -1,4 +1,5 @@
 import { apiRequest } from "../lib/httpClient";
+import type { GetEnrolledStudentsResponse } from "../types/studentList.types";
 import type { ApiAckResponse } from "../types/api.types";
 import type {
   CreateNewRegistrationResponse,
@@ -70,6 +71,18 @@ export const schoolSettingService = {
       method: "POST",
       body: payload,
     });
+  },
+  getEnrolledStudentsOfClass(params: {
+    schId: string;
+    session: string;
+    classID: string;
+    sectionId: string;
+  }) {
+    const query = new URLSearchParams(params).toString();
+    return apiRequest<GetEnrolledStudentsResponse>(
+      `/school-settings/enrolled-studentsOfClass?${query}`,
+      { method: "GET" }
+    );
   },
   getSchClasses(schoolID?: string) {
     const query = schoolID ? `?schoolID=${encodeURIComponent(schoolID)}` : "";

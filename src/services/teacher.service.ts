@@ -9,6 +9,7 @@ import type {
   MakeClassTeacherRequest,
   MakeClassTeacherResponse,
 } from "../types/teacher.types";
+import type { GetClassStudentListResponse } from "../types/studentList.types";
 
 export const teacherService = {
   addTeacher(payload: AddTeacherRequest) {
@@ -33,6 +34,13 @@ export const teacherService = {
     return apiRequest<MakeClassTeacherResponse>(
       `/api/teachers/${encodeURIComponent(teacherId)}/make-class-teacher`,
       { method: "POST", body: payload }
+    );
+  },
+  /** Students of the class this teacher is class teacher of. */
+  getClassStudentList(teacherId: string) {
+    return apiRequest<GetClassStudentListResponse>(
+      `/api/teachers/class-student-list?id=${encodeURIComponent(teacherId)}`,
+      { method: "GET" }
     );
   },
   getClassTeachers(schId: string, session: string) {

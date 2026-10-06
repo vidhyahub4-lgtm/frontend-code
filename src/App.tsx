@@ -22,6 +22,8 @@ import NewRegistrationPage from "./pages/studentmanagement/NewRegistrationPage";
 import ViewRegisteredStudentPage from "./pages/studentmanagement/ViewRegisteredStudentPage";
 import NewAdmissionPage from "./pages/studentmanagement/NewAdmissionPage";
 import AdmittedStudentsPage from "./pages/studentmanagement/AdmittedStudentsPage";
+import EnrolledStudentsPage from "./pages/studentmanagement/EnrolledStudentsPage";
+import AttendancePage from "./pages/teachers/AttendancePage";
 import { AuthProvider } from "./context/AuthContext";
 import { ProtectedRoute } from "./routes/ProtectedRoute";
 import { AppLayout } from "./components/layout/AppLayout";
@@ -72,6 +74,10 @@ function App() {
               element={<ClassTeacherPage />}
             />
             <Route
+              path="/school-setting/teachers-setting/attendance"
+              element={<AttendancePage />}
+            />
+            <Route
               path="/school-setting/fee-setting/fee-plan-setup"
               element={<FeePlanSetupPage />}
             />
@@ -115,6 +121,10 @@ function App() {
             <Route
               path="/student-management/admission/admitted-students"
               element={<AdmittedStudentsPage />}
+            />
+            <Route
+              path="/student-management/admission/enrolled-students"
+              element={<EnrolledStudentsPage />}
             />
             {/* Sidebar links whose pages aren't built yet land here */}
             <Route path="*" element={<ComingSoonPage />} />
