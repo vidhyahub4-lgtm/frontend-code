@@ -5,8 +5,8 @@ import type { RegisteredStudent } from "../types/studentRegistration.types";
  * it as a JSON string in the multipart body. Reads may return raw ObjectIds
  * (list API) or populated objects (by-id API), so these helpers normalise both.
  */
-export function encodeClassApplyfor(classID: string): string {
-  return JSON.stringify({ classID });
+export function encodeClassApplyfor(classID: string, sectionID?: string): string {
+  return JSON.stringify(sectionID ? { classID, sectionID } : { classID });
 }
 
 /** Class `_id` of a registration, whichever shape the API returned. */

@@ -48,6 +48,8 @@ interface FormValues {
   lper: string;
   lboard: string;
   classApplyfor: string;
+  /** Optional. Not a backend field on its own: sent inside `classApplyfor` as `sectionID`. */
+  classSection: string;
   registrationdate: string;
 }
 
@@ -79,6 +81,7 @@ function emptyValues(): FormValues {
     lper: "",
     lboard: "",
     classApplyfor: "",
+    classSection: "",
     registrationdate: new Date().toISOString().slice(0, 10),
   };
 }
@@ -240,6 +243,10 @@ function RegistrationForm({ schId, schCode }: { schId: string; schCode: string }
     };
   }, [schId]);
 
+  // Sections of the currently selected class (same API response, no extra call).
+  const sectionOptions =
+    schClasses.find((c) => c.classID._id === values.classApplyfor)?.sectionID ?? [];
+
   // Free the photo's preview URL when the form goes away.
   const previewUrlRef = useRef<string | null>(null);
   useEffect(
@@ -252,6 +259,12 @@ function RegistrationForm({ schId, schCode }: { schId: string; schCode: string }
   function setValue<K extends keyof FormValues>(key: K, value: FormValues[K]) {
     setValues((prev) => ({ ...prev, [key]: value }));
     setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
+  }
+
+  // Changing the class invalidates the previously chosen section.
+  function handleClassChange(classId: string) {
+    setValue("classApplyfor", classId);
+    setValue("classSection", "");
   }
 
   function handleDobChange(dob: string) {
@@ -309,8 +322,14 @@ function RegistrationForm({ schId, schCode }: { schId: string; schCode: string }
     (Object.keys(values) as (keyof FormValues)[]).forEach((key) => {
       const value = values[key].trim();
       if (!value) return; // skip empty optional fields
+      if (key === "classSection") return; // travels inside classApplyfor
       // Backend JSON.parse()s this field and expects { classID, sectionID? }.
-      formData.append(key, key === "classApplyfor" ? encodeClassApplyfor(value) : value);
+      formData.append(
+        key,
+        key === "classApplyfor"
+          ? encodeClassApplyfor(value, values.classSection.trim() || undefined)
+          : value
+      );
     });
     if (photo) formData.append("Image", photo.file);
 
@@ -660,7 +679,7 @@ function RegistrationForm({ schId, schCode }: { schId: string; schCode: string }
               <select
                 id="reg-classApplyfor"
                 value={values.classApplyfor}
-                onChange={(e) => setValue("classApplyfor", e.target.value)}
+                onChange={(e) => handleClassChange(e.target.value)}
                 disabled={schClassesLoading}
                 className={cls("classApplyfor")}
               >
@@ -670,6 +689,28 @@ function RegistrationForm({ schId, schCode }: { schId: string; schCode: string }
                 {schClasses.map((schClass) => (
                   <option key={schClass._id} value={schClass.classID._id}>
                     {schClass.classID.className}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field id="reg-classSection" label="Section Applying For">
+              <select
+                id="reg-classSection"
+                value={values.classSection}
+                onChange={(e) => setValue("classSection", e.target.value)}
+                disabled={!values.classApplyfor || sectionOptions.length === 0}
+                className={inputClasses}
+              >
+                <option value="">
+                  {!values.classApplyfor
+                    ? "Select a class first"
+                    : sectionOptions.length === 0
+                      ? "No sections for this class"
+                      : "Select a section (optional)"}
+                </option>
+                {sectionOptions.map((section) => (
+                  <option key={section._id} value={section._id}>
+                    {section.sectionName}
                   </option>
                 ))}
               </select>
