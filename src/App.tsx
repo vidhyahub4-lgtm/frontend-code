@@ -24,6 +24,8 @@ import NewAdmissionPage from "./pages/studentmanagement/NewAdmissionPage";
 import AdmittedStudentsPage from "./pages/studentmanagement/AdmittedStudentsPage";
 import EnrolledStudentsPage from "./pages/studentmanagement/EnrolledStudentsPage";
 import AttendancePage from "./pages/teachers/AttendancePage";
+import CollectMonthlyFeePage from "./pages/fee/CollectMonthlyFeePage";
+import StudentPaymentDetailsPage from "./pages/fee/StudentPaymentDetailsPage";
 import { AuthProvider } from "./context/AuthContext";
 import { ProtectedRoute } from "./routes/ProtectedRoute";
 import { AppLayout } from "./components/layout/AppLayout";
@@ -76,6 +78,14 @@ function App() {
             <Route
               path="/school-setting/teachers-setting/attendance"
               element={<AttendancePage />}
+            />
+            <Route
+              path="/fee-options/collect-monthly-fee"
+              element={<CollectMonthlyFeePage />}
+            />
+            <Route
+              path="/fee-options/student-payment-details"
+              element={<StudentPaymentDetailsPage />}
             />
             <Route
               path="/school-setting/fee-setting/fee-plan-setup"

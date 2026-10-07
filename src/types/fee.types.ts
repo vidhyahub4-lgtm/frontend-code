@@ -74,3 +74,67 @@ export interface CollectFeeResponse {
     advanceAmount: number;
   };
 }
+
+/** GET /api/fees/students/:studentId/dues?session=&schId= */
+export interface GetStudentDuesResponse {
+  success: boolean;
+  data: FeeDuesData;
+}
+
+// ---- Monthly dues, grouped by installment month ----
+export interface MonthlyDueItem {
+  demandId: string;
+  feetype: string;
+  netAmount: number;
+  paidAmount: number;
+  dueAmount: number;
+  status: string;
+}
+export interface MonthlyDueMonth {
+  installmentMonthId: string;
+  installmentMonthNo: number;
+  items: MonthlyDueItem[];
+  monthDue: number;
+}
+/** GET /api/fees/students/:studentId/monthly-due?session=&schId= */
+export interface GetMonthlyDuesResponse {
+  success: boolean;
+  data: { months: MonthlyDueMonth[]; totalDue: number; advanceBalance: number };
+}
+
+// ---- Receipts ----
+export interface FeeReceiptLine {
+  demandId: string;
+  headType: string;
+  feetype: string;
+  installmentMonthId?: string | null;
+  amount: number;
+}
+export interface FeeReceiptRecord {
+  _id: string;
+  receiptNo: number;
+  paymentDate: string;
+  mode: PaymentMode;
+  refNo?: string;
+  lines: FeeReceiptLine[];
+  totalAmount: number;
+  advanceAmount: number;
+  status: "active" | "cancelled";
+  cancelledAt?: string;
+  cancelReason?: string;
+}
+/** GET /api/fees/receipts?schId=&session=&studentId=&from=&to= */
+export interface GetReceiptsResponse {
+  success: boolean;
+  count: number;
+  data: FeeReceiptRecord[];
+}
+/** POST /api/fees/receipts/:receiptId/cancel */
+export interface CancelReceiptRequest {
+  schId: string;
+  reason: string;
+}
+export interface CancelReceiptResponse {
+  success: boolean;
+  message: string;
+}
