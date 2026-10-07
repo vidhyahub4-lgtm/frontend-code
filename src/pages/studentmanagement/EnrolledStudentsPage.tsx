@@ -18,6 +18,13 @@ function photoUrl(image?: string): string | null {
   return image ? `${env.apiBaseUrl}/uploads/studentImage/${encodeURIComponent(image)}` : null;
 }
 
+/** The API uses both 0 and null for "no roll number"; the UI shows both as empty. */
+function normalizeRoll(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return "";
+  const text = String(value).trim();
+  return text === "" || Number(text) === 0 ? "" : text;
+}
+
 function EnrolledStudentsContent({ schId, sessionId }: { schId: string; sessionId: string }) {
   const [schClasses, setSchClasses] = useState<SchClass[]>([]);
   const [classesLoading, setClassesLoading] = useState(true);
@@ -71,21 +78,23 @@ function EnrolledStudentsContent({ schId, sessionId }: { schId: string; sessionI
     clearRollState();
   }
 
-  const currentRoll = (r: EnrolledStudentRow) => rollEdits[r._id] ?? r.rollNo ?? "";
+  const currentRoll = (r: EnrolledStudentRow) => normalizeRoll(rollEdits[r._id] ?? r.rollNo);
   const changedRows = (students ?? []).filter(
-    (r) => r._id in rollEdits && rollEdits[r._id].trim() !== (r.rollNo ?? "")
+    (r) => r._id in rollEdits && normalizeRoll(rollEdits[r._id]) !== normalizeRoll(r.rollNo)
   );
   // Catch duplicates before the server does (roll numbers must be unique per class-section).
-  const filledRolls = (students ?? []).map((r) => String(currentRoll(r)).trim()).filter(Boolean);
+  const filledRolls = (students ?? []).map(currentRoll).filter(Boolean);
   const hasDuplicateRolls = new Set(filledRolls).size !== filledRolls.length;
 
   async function handleSaveRolls() {
     setIsSaving(true);
     setSaveError(null);
     setSaveMessage(null);
+    // An emptied (or 0) roll number is saved as null, never as 0, so it can
+    // not clash with other students who also have no roll number.
     const payload = changedRows.map((r) => ({
       enrollmentId: r._id,
-      rollNo: rollEdits[r._id].trim(),
+      rollNo: normalizeRoll(rollEdits[r._id]) || null,
     }));
     try {
       const res = await schoolSettingService.updateStudentRollNumbers({ students: payload });
@@ -223,9 +232,11 @@ function EnrolledStudentsContent({ schId, sessionId }: { schId: string; sessionI
                   render: (r) => (
                     <input
                       aria-label={`Roll number for ${r.studentId?.regno?.sname ?? "student"}`}
-                      value={currentRoll(r)}
+                      value={rollEdits[r._id] ?? normalizeRoll(r.rollNo)}
+                      inputMode="numeric"
+                      placeholder="—"
                       onChange={(e) =>
-                        setRollEdits((prev) => ({ ...prev, [r._id]: e.target.value }))
+                        setRollEdits((prev) => ({ ...prev, [r._id]: e.target.value.replace(/\D/g, "") }))
                       }
                       className="w-20 rounded-md border border-line bg-white px-2 py-1 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-marigold/40"
                     />

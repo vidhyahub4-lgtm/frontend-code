@@ -19,7 +19,8 @@ export interface ListedStudentReg {
 // ---- GET /school-settings/enrolled-studentsOfClass ----
 export interface EnrolledStudentRow {
   _id: string;
-  rollNo?: string;
+  /** 0 and null both mean "no roll number assigned". */
+  rollNo?: string | number | null;
   studentId: { _id: string; regno: ListedStudentReg | null } | null;
 }
 export interface GetEnrolledStudentsResponse {
@@ -43,7 +44,8 @@ export interface GetClassStudentListResponse {
 
 // ---- PUT /school-settings/class-students/update-rollno ----
 export interface UpdateRollNoRequest {
-  students: { enrollmentId: string; rollNo: string }[];
+  /** null clears the roll number (never send 0). */
+  students: { enrollmentId: string; rollNo: string | null }[];
 }
 export interface UpdateRollNoResponse {
   success: boolean;
