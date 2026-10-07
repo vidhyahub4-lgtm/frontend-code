@@ -1,5 +1,9 @@
 import { apiRequest } from "../lib/httpClient";
-import type { GetEnrolledStudentsResponse } from "../types/studentList.types";
+import type {
+  GetEnrolledStudentsResponse,
+  UpdateRollNoRequest,
+  UpdateRollNoResponse,
+} from "../types/studentList.types";
 import type { ApiAckResponse } from "../types/api.types";
 import type {
   CreateNewRegistrationResponse,
@@ -82,6 +86,12 @@ export const schoolSettingService = {
     return apiRequest<GetEnrolledStudentsResponse>(
       `/school-settings/enrolled-studentsOfClass?${query}`,
       { method: "GET" }
+    );
+  },
+  updateStudentRollNumbers(payload: UpdateRollNoRequest) {
+    return apiRequest<UpdateRollNoResponse>(
+      "/school-settings/class-students/update-rollno",
+      { method: "PUT", body: payload }
     );
   },
   getSchClasses(schoolID?: string) {

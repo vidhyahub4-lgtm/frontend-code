@@ -40,3 +40,13 @@ export interface GetClassStudentListResponse {
   message?: string;
   data: ClassStudentRow[];
 }
+
+// ---- PUT /school-settings/class-students/update-rollno ----
+export interface UpdateRollNoRequest {
+  students: { enrollmentId: string; rollNo: string }[];
+}
+export interface UpdateRollNoResponse {
+  success: boolean;
+  message: string;
+  data: { matchedCount: number; modifiedCount: number };
+}

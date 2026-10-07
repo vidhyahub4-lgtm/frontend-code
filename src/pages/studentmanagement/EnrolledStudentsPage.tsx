@@ -30,6 +30,12 @@ function EnrolledStudentsContent({ schId, sessionId }: { schId: string; sessionI
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Unsaved roll number edits, keyed by enrollment id.
+  const [rollEdits, setRollEdits] = useState<Record<string, string>>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     schoolSettingService
@@ -51,16 +57,55 @@ function EnrolledStudentsContent({ schId, sessionId }: { schId: string; sessionI
 
   const sectionOptions = schClasses.find((c) => c.classID._id === classId)?.sectionID ?? [];
 
+  function clearRollState() {
+    setRollEdits({});
+    setSaveError(null);
+    setSaveMessage(null);
+  }
+
   function handleClassChange(value: string) {
     setClassId(value);
     setSectionId("");
     setStudents(null); // the old list belongs to the previous class
     setError(null);
+    clearRollState();
+  }
+
+  const currentRoll = (r: EnrolledStudentRow) => rollEdits[r._id] ?? r.rollNo ?? "";
+  const changedRows = (students ?? []).filter(
+    (r) => r._id in rollEdits && rollEdits[r._id].trim() !== (r.rollNo ?? "")
+  );
+  // Catch duplicates before the server does (roll numbers must be unique per class-section).
+  const filledRolls = (students ?? []).map((r) => String(currentRoll(r)).trim()).filter(Boolean);
+  const hasDuplicateRolls = new Set(filledRolls).size !== filledRolls.length;
+
+  async function handleSaveRolls() {
+    setIsSaving(true);
+    setSaveError(null);
+    setSaveMessage(null);
+    const payload = changedRows.map((r) => ({
+      enrollmentId: r._id,
+      rollNo: rollEdits[r._id].trim(),
+    }));
+    try {
+      const res = await schoolSettingService.updateStudentRollNumbers({ students: payload });
+      const saved = new Map(payload.map((p) => [p.enrollmentId, p.rollNo]));
+      setStudents((prev) =>
+        prev ? prev.map((r) => (saved.has(r._id) ? { ...r, rollNo: saved.get(r._id) } : r)) : prev
+      );
+      setRollEdits({});
+      setSaveMessage(res.message || "Roll numbers saved.");
+    } catch (err) {
+      setSaveError(err instanceof ApiError ? err.message : "Could not save roll numbers.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   async function handleShow() {
     setIsLoading(true);
     setError(null);
+    clearRollState();
     try {
       const res = await schoolSettingService.getEnrolledStudentsOfClass({
         schId,
@@ -111,6 +156,7 @@ function EnrolledStudentsContent({ schId, sessionId }: { schId: string; sessionI
               onChange={(e) => {
                 setSectionId(e.target.value);
                 setStudents(null);
+                clearRollState();
               }}
               disabled={!classId || sectionOptions.length === 0}
               className={inputClasses}
@@ -141,7 +187,30 @@ function EnrolledStudentsContent({ schId, sessionId }: { schId: string; sessionI
 
         {(students !== null || isLoading || error) && (
           <>
-            {students && <p className="text-xs text-ink-soft">{students.length} student(s) enrolled</p>}
+            {students && (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-xs text-ink-soft">{students.length} student(s) enrolled</p>
+                {students.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleSaveRolls}
+                    disabled={changedRows.length === 0 || hasDuplicateRolls || isSaving}
+                    className="rounded-md bg-marigold px-3 py-1.5 text-sm font-medium text-ink hover:bg-marigold-dark disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isSaving
+                      ? "Saving…"
+                      : `Save Roll Numbers${changedRows.length ? ` (${changedRows.length})` : ""}`}
+                  </button>
+                )}
+              </div>
+            )}
+            {hasDuplicateRolls && (
+              <p className="text-sm text-red-700">
+                Two or more students have the same roll number. Roll numbers must be unique.
+              </p>
+            )}
+            {saveError && <p className="text-sm text-red-700">{saveError}</p>}
+            {saveMessage && <p className="text-sm text-green-700">{saveMessage}</p>}
             <EntityTable
               items={students ?? []}
               isLoading={isLoading}
@@ -149,6 +218,19 @@ function EnrolledStudentsContent({ schId, sessionId }: { schId: string; sessionI
               emptyLabel="No students are enrolled in this class and section."
               getRowKey={(r) => r._id}
               columns={[
+                {
+                  header: "Roll No",
+                  render: (r) => (
+                    <input
+                      aria-label={`Roll number for ${r.studentId?.regno?.sname ?? "student"}`}
+                      value={currentRoll(r)}
+                      onChange={(e) =>
+                        setRollEdits((prev) => ({ ...prev, [r._id]: e.target.value }))
+                      }
+                      className="w-20 rounded-md border border-line bg-white px-2 py-1 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-marigold/40"
+                    />
+                  ),
+                },
                 {
                   header: "Photo",
                   render: (r) => {
