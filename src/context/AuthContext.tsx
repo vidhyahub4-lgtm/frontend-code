@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import type { AuthUser, LoginResponse, SidebarItem } from "../types/auth.types";
-import { clearStoredSelectedSchool } from "../lib/selectedSchool";
+import { clearStoredSelectedSchool, setStoredSelectedSchool } from "../lib/selectedSchool";
 import { clearStoredSelectedSession } from "../lib/selectedSession";
 import { setUnauthorizedHandler } from "../lib/authEvents";
 import { getTokenExpiryMs, isTokenExpired } from "../lib/jwt";
@@ -88,6 +88,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback((response: LoginResponse) => {
     setStoredToken(response.accessToken);
+    // A school admin always works inside their own school (no workspace switcher).
+    const { user: loggedIn } = response.data;
+    if (loggedIn.userType !== "superAdmin" && loggedIn.sch) {
+      setStoredSelectedSchool({
+        id: loggedIn.sch.schid,
+        name: loggedIn.sch.schoolName,
+        schoolCode: loggedIn.sch.schoolCode ?? "",
+      });
+    }
     localStorage.setItem(USER_KEY, JSON.stringify(response.data.user));
     localStorage.setItem(SIDEBAR_KEY, JSON.stringify(response.data.sidebar));
 

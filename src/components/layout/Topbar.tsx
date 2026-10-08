@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useSelectedSchool } from "../../hooks/useSelectedSchool";
 import { useSelectedSession } from "../../hooks/useSelectedSession";
+import { AdminWorkspaceBar } from "./AdminWorkspaceBar";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
 interface TopbarProps {
@@ -34,7 +35,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
         <Menu size={22} />
       </button>
 
-      {/* Currently selected school + session (superAdmin only) */}
+      {/* superAdmin: school + session they are working as. Admin: own school + session picker. */}
       {isSuperAdmin ? (
         <div className="flex min-w-0 items-center gap-2 rounded-full border border-line bg-white px-3 py-1 text-xs">
           <School size={14} className="shrink-0 text-marigold-dark" />
@@ -52,6 +53,8 @@ export function Topbar({ onMenuClick }: TopbarProps) {
             <span className="shrink-0 text-ink-soft">No session</span>
           )}
         </div>
+      ) : user?.sch ? (
+        <AdminWorkspaceBar school={user.sch} />
       ) : (
         <div className="hidden lg:block" />
       )}

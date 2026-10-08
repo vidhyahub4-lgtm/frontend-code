@@ -4,6 +4,15 @@ export interface LoginRequest {
   password: string;
 }
 
+/** The school a (non-superAdmin) user belongs to, sent with the login response. */
+export interface AuthSchool {
+  schid: string;
+  schoolName: string;
+  schoolLogo?: string;
+  /** Not sent by the backend yet; pages that need it fall back to "". */
+  schoolCode?: string;
+}
+
 export interface AuthUser {
   id: string;
   firstname: string;
@@ -13,6 +22,7 @@ export interface AuthUser {
   phoneno: number;
   userType: string;
   image: string;
+  sch?: AuthSchool | null;
 }
 
 export interface SidebarItem {
