@@ -1,9 +1,16 @@
 import { useEffect, useState } from "react";
-import { AlertCircle, CheckCircle2, IndianRupee, Loader2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, IndianRupee, Loader2, User } from "lucide-react";
 import { SchoolSessionGate } from "../../components/common/SchoolSessionGate";
 import { SectionCard } from "../../components/common/SectionCard";
 import { EnrolledStudentPicker } from "../../components/fee/EnrolledStudentPicker";
-import { enrollmentStudentName } from "../../lib/enrollmentDisplay";
+import { env } from "../../config/env";
+import { amountInWords } from "../../lib/amountInWords";
+import {
+  enrollmentClassName,
+  enrollmentSectionName,
+  enrollmentStudentName,
+} from "../../lib/enrollmentDisplay";
+import { installmentMonthName } from "../../lib/installmentMonths";
 import { feeService } from "../../services/fee.service";
 import { ApiError } from "../../types/api.types";
 import type {
@@ -16,27 +23,78 @@ import type {
 const inputClasses =
   "w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-marigold/40 disabled:cursor-not-allowed disabled:opacity-60";
 const labelClasses = "text-sm font-medium text-ink-soft";
+const thClasses = "py-2 pr-3 font-medium";
 const PAY_MODES: PaymentMode[] = ["cash", "upi", "cheque", "online", "card"];
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
-const monthKey = (m: MonthlyDueMonth) => String(m.installmentMonthId);
+const money = (n: number) => `₹${n.toLocaleString("en-IN")}`;
+
+function photoUrl(image?: string): string | null {
+  return image ? `${env.apiBaseUrl}/uploads/studentImage/${encodeURIComponent(image)}` : null;
+}
+
+// ---------------------------------------------------------------- profile
+
+function StudentProfileCard({ row, sessionName }: { row: EnrollmentRow; sessionName: string }) {
+  const reg = typeof row.studentId.regno === "string" ? null : row.studentId.regno;
+  const url = photoUrl(reg?.Image);
+  const roll = Number(row.rollNo) ? String(row.rollNo) : "—";
+  const classText = [enrollmentClassName(row), enrollmentSectionName(row)].filter(Boolean).join(" / ") || "—";
+
+  const details: [string, string][] = [
+    ["Student's Name", enrollmentStudentName(row) || "—"],
+    ["Father's Name", reg?.fname || "—"],
+    ["Mother's Name", reg?.mname || "—"],
+    ["Admission No", row.studentId.admno || "—"],
+    ["Class / Sec / Roll", `${classText} / ${roll}`],
+    ["Session", sessionName],
+  ];
+
+  return (
+    <SectionCard title="Student Details" icon={User}>
+      <div className="flex items-start gap-4">
+        {url ? (
+          <img src={url} alt="" className="h-20 w-20 shrink-0 rounded-md border border-line object-cover" />
+        ) : (
+          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-md border border-line bg-paper text-ink-soft">
+            <User size={28} />
+          </div>
+        )}
+        <dl className="grid flex-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+          {details.map(([label, value]) => (
+            <div key={label}>
+              <dt className="text-xs uppercase tracking-wide text-ink-soft">{label}</dt>
+              <dd className="font-medium text-ink">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    </SectionCard>
+  );
+}
+
+// -------------------------------------------------------------- collector
 
 interface CollectorProps {
   studentId: string;
   schId: string;
   sessionId: string;
-  studentName: string;
+  sessionName: string;
   onCollected: (message: string) => void;
 }
 
-/** Loads one student's monthly dues and collects payment for the chosen months. */
-function MonthlyFeeCollector({ studentId, schId, sessionId, studentName, onCollected }: CollectorProps) {
+type TileState = "paid" | "due" | "none";
+
+function MonthlyFeeCollector({ studentId, schId, sessionId, sessionName, onCollected }: CollectorProps) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [months, setMonths] = useState<MonthlyDueMonth[]>([]);
+  const [dueMonths, setDueMonths] = useState<MonthlyDueMonth[]>([]);
+  const [paidNos, setPaidNos] = useState<number[]>([]);
   const [advanceBalance, setAdvanceBalance] = useState(0);
-  const [selected, setSelected] = useState<Record<string, boolean>>({});
+
+  const [selected, setSelected] = useState<Record<number, boolean>>({});
   const [amounts, setAmounts] = useState<Record<string, string>>({});
+  const [unticked, setUnticked] = useState<Record<string, boolean>>({}); // fee heads left out of this payment
 
   const [mode, setMode] = useState<PaymentMode>("cash");
   const [refNo, setRefNo] = useState("");
@@ -47,22 +105,26 @@ function MonthlyFeeCollector({ studentId, schId, sessionId, studentName, onColle
 
   useEffect(() => {
     let cancelled = false;
-    feeService
-      .getMonthlyDues(studentId, sessionId, schId)
-      .then((res) => {
+    Promise.all([
+      // Which months are already paid. Optional: the grid still works without it.
+      feeService.getPaymentDetailMonthly(studentId, sessionId, schId).catch(() => null),
+      // Exact due per fee head (the payment-detail API only has net amounts).
+      feeService.getMonthlyDues(studentId, sessionId, schId),
+    ])
+      .then(([paidRes, duesRes]) => {
         if (cancelled) return;
-        const list = res.data.months ?? [];
-        setMonths(list);
-        setAdvanceBalance(res.data.advanceBalance ?? 0);
-        const initialAmounts: Record<string, string> = {};
-        list.forEach((m) => m.items.forEach((i) => (initialAmounts[i.demandId] = String(i.dueAmount))));
-        setAmounts(initialAmounts);
+        const months = [...(duesRes.data.months ?? [])].sort((a, b) => a.installmentMonthNo - b.installmentMonthNo);
+        setDueMonths(months);
+        setPaidNos((paidRes?.data.pinst ?? []).map((p) => p.instno));
+        setAdvanceBalance(duesRes.data.advanceBalance ?? 0);
+        const initial: Record<string, string> = {};
+        months.forEach((m) => m.items.forEach((i) => (initial[i.demandId] = String(i.dueAmount))));
+        setAmounts(initial);
         // The oldest unpaid month is pre-selected; that's what is usually paid first.
-        setSelected(list[0] ? { [monthKey(list[0])]: true } : {});
+        setSelected(months[0] ? { [months[0].installmentMonthNo]: true } : {});
       })
       .catch((err) => {
-        if (!cancelled)
-          setLoadError(err instanceof ApiError ? err.message : "Could not load monthly dues.");
+        if (!cancelled) setLoadError(err instanceof ApiError ? err.message : "Could not load fee details.");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -72,28 +134,36 @@ function MonthlyFeeCollector({ studentId, schId, sessionId, studentName, onColle
     };
   }, [studentId, sessionId, schId]);
 
-  const selectedMonths = months.filter((m) => selected[monthKey(m)]);
-  const totalPaying = selectedMonths.reduce(
-    (sum, m) => sum + m.items.reduce((s, i) => s + (Number(amounts[i.demandId]) || 0), 0),
-    0
-  );
-  const allSelected = months.length > 0 && selectedMonths.length === months.length;
+  const dueByNo = new Map(dueMonths.map((m) => [m.installmentMonthNo, m]));
+  const allNos = [...paidNos, ...dueMonths.map((m) => m.installmentMonthNo)];
+  const tileNos = Array.from({ length: Math.max(12, ...allNos) }, (_, i) => i + 1);
+  const tileState = (no: number): TileState => (dueByNo.has(no) ? "due" : paidNos.includes(no) ? "paid" : "none");
+
+  const selectedMonths = dueMonths.filter((m) => selected[m.installmentMonthNo]);
+  const rows = selectedMonths.flatMap((m) => m.items.map((item) => ({ month: m, item })));
+  const included = rows.filter((r) => !unticked[r.item.demandId]);
+
+  const installmentTotal = included.reduce((s, r) => s + (Number(amounts[r.item.demandId]) || 0), 0);
+  const extraAdvance = Number(advanceAmount) || 0;
+  const paidAmount = installmentTotal + extraAdvance;
+  const totalDue = dueMonths.reduce((s, m) => s + m.monthDue, 0);
+  const currentDues = Math.max(totalDue - installmentTotal, 0);
 
   async function handleCollect() {
     setCollectError(null);
     const lines: CollectFeeLine[] = [];
-    for (const m of selectedMonths) {
-      for (const i of m.items) {
-        const amount = Number(amounts[i.demandId]) || 0;
-        if (amount > i.dueAmount) {
-          setCollectError(`Amount for "${i.feetype}" (Month ${m.installmentMonthNo}) exceeds the due amount (${i.dueAmount}).`);
-          return;
-        }
-        if (amount > 0) lines.push({ demandId: i.demandId, amount });
+    for (const { month, item } of included) {
+      const amount = Number(amounts[item.demandId]) || 0;
+      if (amount > item.dueAmount) {
+        setCollectError(
+          `Amount for "${item.feetype}" (${installmentMonthName(month.installmentMonthNo)}) exceeds the due amount (${item.dueAmount}).`
+        );
+        return;
       }
+      if (amount > 0) lines.push({ demandId: item.demandId, amount });
     }
     if (!lines.length) {
-      setCollectError("Select at least one month and enter an amount greater than 0.");
+      setCollectError("Select at least one month and fee head with an amount greater than 0.");
       return;
     }
     setCollecting(true);
@@ -106,7 +176,7 @@ function MonthlyFeeCollector({ studentId, schId, sessionId, studentName, onColle
         refNo: refNo.trim() || undefined,
         paymentDate,
         lines,
-        advanceAmount: Number(advanceAmount) || 0,
+        advanceAmount: extraAdvance,
       });
       onCollected(
         res.data ? `Payment collected — receipt no. ${res.data.receiptNo}.` : res.message || "Payment collected."
@@ -117,148 +187,257 @@ function MonthlyFeeCollector({ studentId, schId, sessionId, studentName, onColle
     }
   }
 
-  return (
-    <SectionCard title={`Monthly Fee — ${studentName || "Student"}`} icon={IndianRupee}>
-      {loading && (
-        <p className="flex items-center gap-1.5 text-sm text-ink-soft">
-          <Loader2 size={14} className="animate-spin" /> Loading monthly dues…
-        </p>
-      )}
-      {!loading && loadError && (
-        <p className="flex items-center gap-1.5 text-sm text-red-600">
-          <AlertCircle size={14} /> {loadError}
-        </p>
-      )}
-      {!loading && !loadError && months.length === 0 && (
-        <p className="flex items-center gap-1.5 text-sm text-emerald-700">
-          <CheckCircle2 size={14} /> No monthly fee is due for this student.
-        </p>
-      )}
-      {!loading && !loadError && months.length > 0 && (
-        <div className="space-y-4">
-          <label className="flex items-center gap-2 text-sm text-ink-soft">
-            <input
-              type="checkbox"
-              checked={allSelected}
-              onChange={(e) =>
-                setSelected(e.target.checked ? Object.fromEntries(months.map((m) => [monthKey(m), true])) : {})
-              }
-            />
-            Select all months
-          </label>
+  if (loading) {
+    return (
+      <p className="flex items-center gap-1.5 text-sm text-ink-soft">
+        <Loader2 size={14} className="animate-spin" /> Loading fee details…
+      </p>
+    );
+  }
+  if (loadError) {
+    return (
+      <p className="flex items-center gap-1.5 text-sm text-red-600">
+        <AlertCircle size={14} /> {loadError}
+      </p>
+    );
+  }
 
+  const tileClasses: Record<TileState | "selected", string> = {
+    paid: "border-emerald-300 bg-emerald-50 text-emerald-700",
+    due: "border-line bg-white text-ink hover:border-marigold",
+    selected: "border-marigold bg-marigold/15 text-ink",
+    none: "border-line bg-paper text-ink-soft opacity-60",
+  };
+  const tileCaption: Record<TileState | "selected", string> = {
+    paid: "Paid",
+    due: "Due",
+    selected: "Selected",
+    none: "—",
+  };
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-2">
+      {/* ---------------- left: heads of the chosen months ---------------- */}
+      <SectionCard title="Installment / Monthly Fee Heads" icon={IndianRupee}>
+        {dueMonths.length === 0 ? (
+          <p className="flex items-center gap-1.5 text-sm text-emerald-700">
+            <CheckCircle2 size={14} /> No monthly fee is due for this student.
+          </p>
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-ink-soft">Select a month from the grid to see its fee heads.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-soft">
+                  <th className={thClasses}>Sl</th>
+                  <th className={thClasses}>Pay</th>
+                  <th className={thClasses}>Installment</th>
+                  <th className={thClasses}>Head Name</th>
+                  <th className={thClasses}>Due</th>
+                  <th className={thClasses}>Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {rows.map(({ month, item }, index) => {
+                  const off = !!unticked[item.demandId];
+                  return (
+                    <tr key={item.demandId} className={off ? "opacity-50" : ""}>
+                      <td className="py-2 pr-3">{index + 1}</td>
+                      <td className="py-2 pr-3">
+                        <input
+                          type="checkbox"
+                          aria-label={`Pay ${item.feetype} for ${installmentMonthName(month.installmentMonthNo)}`}
+                          checked={!off}
+                          onChange={(e) => setUnticked((prev) => ({ ...prev, [item.demandId]: !e.target.checked }))}
+                        />
+                      </td>
+                      <td className="py-2 pr-3">{installmentMonthName(month.installmentMonthNo)}</td>
+                      <td className="py-2 pr-3">{item.feetype}</td>
+                      <td className="py-2 pr-3">{item.dueAmount}</td>
+                      <td className="py-2 pr-3">
+                        <input
+                          type="number"
+                          min={0}
+                          max={item.dueAmount}
+                          disabled={off}
+                          value={amounts[item.demandId] ?? ""}
+                          onChange={(e) => setAmounts((prev) => ({ ...prev, [item.demandId]: e.target.value }))}
+                          className={`${inputClasses} w-24`}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="border-t border-line font-medium text-ink">
+                  <td colSpan={5} className="py-2 pr-3 text-right">Total</td>
+                  <td className="py-2 pr-3">{money(installmentTotal)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </SectionCard>
+
+      {/* ---------------- right: months, amount, payment ---------------- */}
+      <div className="space-y-6">
+        <SectionCard title="Installment / Months Selection" icon={IndianRupee}>
           <div className="space-y-3">
-            {months.map((m) => {
-              const checked = !!selected[monthKey(m)];
-              return (
-                <div key={monthKey(m)} className="rounded-md border border-line">
-                  <label className="flex cursor-pointer items-center justify-between gap-3 bg-paper px-3 py-2">
-                    <span className="flex items-center gap-2 text-sm font-medium text-ink">
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 xl:grid-cols-6">
+              {tileNos.map((no) => {
+                const state = tileState(no);
+                const isSelected = state === "due" && !!selected[no];
+                const visual = isSelected ? "selected" : state;
+                return (
+                  <label
+                    key={no}
+                    className={`flex flex-col items-center gap-1 rounded-md border px-2 py-2 text-center text-xs ${
+                      tileClasses[visual]
+                    } ${state === "due" ? "cursor-pointer" : "cursor-not-allowed"}`}
+                  >
+                    {state === "paid" ? (
+                      <CheckCircle2 size={16} />
+                    ) : (
                       <input
                         type="checkbox"
-                        checked={checked}
-                        onChange={(e) => setSelected((prev) => ({ ...prev, [monthKey(m)]: e.target.checked }))}
+                        disabled={state !== "due"}
+                        checked={isSelected}
+                        onChange={(e) => setSelected((prev) => ({ ...prev, [no]: e.target.checked }))}
                       />
-                      Month {m.installmentMonthNo}
+                    )}
+                    <span className="font-medium">{installmentMonthName(no)}</span>
+                    <span className="text-[10px] uppercase tracking-wide opacity-80">
+                      {tileCaption[visual]} · {no}
                     </span>
-                    <span className="text-sm text-ink-soft">Due ₹{m.monthDue}</span>
                   </label>
-                  <div className="overflow-x-auto px-3 pb-2">
-                    <table className="w-full text-left text-sm">
-                      <thead>
-                        <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-soft">
-                          <th className="py-2 pr-3 font-medium">Fee Head</th>
-                          <th className="py-2 pr-3 font-medium">Net</th>
-                          <th className="py-2 pr-3 font-medium">Paid</th>
-                          <th className="py-2 pr-3 font-medium">Due</th>
-                          <th className="py-2 pr-3 font-medium">Collecting Now</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-line">
-                        {m.items.map((i) => (
-                          <tr key={i.demandId}>
-                            <td className="py-2 pr-3">{i.feetype}</td>
-                            <td className="py-2 pr-3">{i.netAmount}</td>
-                            <td className="py-2 pr-3">{i.paidAmount}</td>
-                            <td className="py-2 pr-3">{i.dueAmount}</td>
-                            <td className="py-2 pr-3">
-                              <input
-                                type="number"
-                                min={0}
-                                max={i.dueAmount}
-                                disabled={!checked}
-                                value={amounts[i.demandId] ?? ""}
-                                onChange={(e) => setAmounts((prev) => ({ ...prev, [i.demandId]: e.target.value }))}
-                                className={`${inputClasses} w-28`}
-                              />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+            {dueMonths.length > 1 && (
+              <button
+                type="button"
+                onClick={() =>
+                  setSelected(
+                    selectedMonths.length === dueMonths.length
+                      ? {}
+                      : Object.fromEntries(dueMonths.map((m) => [m.installmentMonthNo, true]))
+                  )
+                }
+                className="text-sm font-medium text-marigold-dark hover:underline"
+              >
+                {selectedMonths.length === dueMonths.length ? "Clear selection" : "Select all due months"}
+              </button>
+            )}
           </div>
+        </SectionCard>
 
-          {advanceBalance > 0 && <p className="text-xs text-ink-soft">Available advance balance: ₹{advanceBalance}</p>}
-
-          <div className="grid gap-3 sm:grid-cols-4">
-            <div className="space-y-1">
-              <label htmlFor="mf-mode" className={labelClasses}>Payment Mode</label>
-              <select id="mf-mode" value={mode} onChange={(e) => setMode(e.target.value as PaymentMode)} className={inputClasses}>
-                {PAY_MODES.map((m) => (
-                  <option key={m} value={m}>{m.charAt(0).toUpperCase() + m.slice(1)}</option>
-                ))}
-              </select>
+        <SectionCard title="Payable Amount" icon={IndianRupee}>
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <p className={labelClasses}>Installment Total</p>
+                <p className="rounded-md border border-line bg-paper px-3 py-2 text-sm font-medium text-ink">
+                  {money(installmentTotal)}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="mf-adv" className={labelClasses}>Extra Advance</label>
+                <input
+                  id="mf-adv"
+                  type="number"
+                  min={0}
+                  value={advanceAmount}
+                  onChange={(e) => setAdvanceAmount(e.target.value)}
+                  className={inputClasses}
+                />
+              </div>
+              <div className="space-y-1">
+                <p className={labelClasses}>Paid Amount</p>
+                <p className="rounded-md border border-marigold bg-marigold/10 px-3 py-2 text-sm font-semibold text-ink">
+                  {money(paidAmount)}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className={labelClasses}>Current Dues (after this payment)</p>
+                <p className="rounded-md border border-line bg-paper px-3 py-2 text-sm font-medium text-ink">
+                  {money(currentDues)}
+                </p>
+              </div>
             </div>
-            <div className="space-y-1">
-              <label htmlFor="mf-ref" className={labelClasses}>Ref No.</label>
-              <input
-                id="mf-ref"
-                value={refNo}
-                onChange={(e) => setRefNo(e.target.value)}
-                placeholder={mode === "cash" ? "Optional" : "Cheque / txn no."}
-                className={inputClasses}
-              />
-            </div>
-            <div className="space-y-1">
-              <label htmlFor="mf-date" className={labelClasses}>Payment Date</label>
-              <input id="mf-date" type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} className={inputClasses} />
-            </div>
-            <div className="space-y-1">
-              <label htmlFor="mf-adv" className={labelClasses}>Extra Advance</label>
-              <input id="mf-adv" type="number" min={0} value={advanceAmount} onChange={(e) => setAdvanceAmount(e.target.value)} className={inputClasses} />
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
-            <p className="text-sm font-medium text-ink">Collecting: ₹{totalPaying}</p>
-            <button
-              type="button"
-              onClick={handleCollect}
-              disabled={collecting}
-              className="flex items-center gap-1.5 rounded-md bg-marigold px-4 py-2 text-sm font-medium text-ink hover:bg-marigold-dark disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {collecting ? <Loader2 size={15} className="animate-spin" /> : <IndianRupee size={15} />}
-              Collect Fee
-            </button>
-          </div>
-          {collectError && (
-            <p className="flex items-center gap-1.5 text-xs text-red-600">
-              <AlertCircle size={13} /> {collectError}
+            {advanceBalance > 0 && (
+              <p className="text-xs text-ink-soft">Available advance balance: {money(advanceBalance)}</p>
+            )}
+            <p className="rounded-md bg-chalkboard/5 px-3 py-2 text-sm font-medium text-ink">
+              {amountInWords(paidAmount)}
             </p>
-          )}
-        </div>
-      )}
-    </SectionCard>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Payment Mode" icon={IndianRupee}>
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="space-y-1">
+                <label htmlFor="mf-mode" className={labelClasses}>Payment Mode</label>
+                <select id="mf-mode" value={mode} onChange={(e) => setMode(e.target.value as PaymentMode)} className={inputClasses}>
+                  {PAY_MODES.map((m) => (
+                    <option key={m} value={m}>{m.charAt(0).toUpperCase() + m.slice(1)}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="mf-ref" className={labelClasses}>Ref No.</label>
+                <input
+                  id="mf-ref"
+                  value={refNo}
+                  onChange={(e) => setRefNo(e.target.value)}
+                  placeholder={mode === "cash" ? "Optional" : "Cheque / txn no."}
+                  className={inputClasses}
+                />
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="mf-date" className={labelClasses}>Payment Date</label>
+                <input id="mf-date" type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} className={inputClasses} />
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
+              <p className="text-xs text-ink-soft">Collecting fee for session {sessionName}</p>
+              <button
+                type="button"
+                onClick={handleCollect}
+                disabled={collecting || dueMonths.length === 0}
+                className="flex items-center gap-1.5 rounded-md bg-marigold px-4 py-2 text-sm font-medium text-ink hover:bg-marigold-dark disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {collecting ? <Loader2 size={15} className="animate-spin" /> : <IndianRupee size={15} />}
+                Collect Fee
+              </button>
+            </div>
+            {collectError && (
+              <p className="flex items-center gap-1.5 text-xs text-red-600">
+                <AlertCircle size={13} /> {collectError}
+              </p>
+            )}
+          </div>
+        </SectionCard>
+      </div>
+    </div>
   );
 }
 
-function CollectMonthlyFeeContent({ schId, sessionId }: { schId: string; sessionId: string }) {
+// ------------------------------------------------------------------- page
+
+function CollectMonthlyFeeContent({
+  schId,
+  sessionId,
+  sessionName,
+}: {
+  schId: string;
+  sessionId: string;
+  sessionName: string;
+}) {
   const [student, setStudent] = useState<EnrollmentRow | null>(null);
-  // Bumping this remounts the collector so the dues are fetched again after a payment.
+  // Bumping this remounts the collector so the fees are fetched again after a payment.
   const [reloadKey, setReloadKey] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -278,17 +457,20 @@ function CollectMonthlyFeeContent({ schId, sessionId }: { schId: string; session
         </p>
       )}
       {student && (
-        <MonthlyFeeCollector
-          key={`${student.studentId._id}:${reloadKey}`}
-          studentId={student.studentId._id}
-          schId={schId}
-          sessionId={sessionId}
-          studentName={enrollmentStudentName(student)}
-          onCollected={(msg) => {
-            setMessage(msg);
-            setReloadKey((k) => k + 1);
-          }}
-        />
+        <>
+          <StudentProfileCard row={student} sessionName={sessionName} />
+          <MonthlyFeeCollector
+            key={`${student.studentId._id}:${reloadKey}`}
+            studentId={student.studentId._id}
+            schId={schId}
+            sessionId={sessionId}
+            sessionName={sessionName}
+            onCollected={(msg) => {
+              setMessage(msg);
+              setReloadKey((k) => k + 1);
+            }}
+          />
+        </>
       )}
     </div>
   );
@@ -297,7 +479,9 @@ function CollectMonthlyFeeContent({ schId, sessionId }: { schId: string; session
 function CollectMonthlyFeePage() {
   return (
     <SchoolSessionGate eyebrow="Fee Options" title="Collect Monthly Fee">
-      {({ schId, sessionId }) => <CollectMonthlyFeeContent schId={schId} sessionId={sessionId} />}
+      {({ schId, sessionId, sessionName }) => (
+        <CollectMonthlyFeeContent schId={schId} sessionId={sessionId} sessionName={sessionName} />
+      )}
     </SchoolSessionGate>
   );
 }

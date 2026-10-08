@@ -7,7 +7,7 @@ interface Props {
   eyebrow: string;
   title: string;
   /** Rendered only when a school and a session are selected; remounts when either changes. */
-  children: (ids: { schId: string; sessionId: string }) => ReactNode;
+  children: (ids: { schId: string; sessionId: string; sessionName: string }) => ReactNode;
 }
 
 /** Page header + "select a school and session first" guard shared by the Fee Options pages. */
@@ -31,7 +31,7 @@ export function SchoolSessionGate({ eyebrow, title, children }: Props) {
 
       {selectedSchool && selectedSession ? (
         <div key={`${selectedSchool.id}:${selectedSession.id}`}>
-          {children({ schId: selectedSchool.id, sessionId: selectedSession.id })}
+          {children({ schId: selectedSchool.id, sessionId: selectedSession.id, sessionName: selectedSession.name })}
         </div>
       ) : (
         <div className="rounded-lg border border-dashed border-line bg-white px-5 py-10 text-center">

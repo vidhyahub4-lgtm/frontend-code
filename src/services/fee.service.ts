@@ -3,6 +3,7 @@ import type {
   CancelReceiptRequest,
   CancelReceiptResponse,
   GetMonthlyDuesResponse,
+  GetPaymentDetailMonthlyResponse,
   GetReceiptsResponse,
   GetStudentDuesResponse,
   CollectFeeRequest,
@@ -27,6 +28,12 @@ export const feeService = {
       `/api/fees/students/${encodeURIComponent(studentId)}/monthly-due?session=${encodeURIComponent(
         session
       )}&schId=${encodeURIComponent(schId)}`,
+      { method: "GET" }
+    );
+  },
+  getPaymentDetailMonthly(studentId: string, session: string, schId: string) {
+    return apiRequest<GetPaymentDetailMonthlyResponse>(
+      `/api/fees/students/payment-detail-monthly?${new URLSearchParams({ schId, session, studentId }).toString()}`,
       { method: "GET" }
     );
   },

@@ -28,12 +28,14 @@ export interface EnrollmentRow {
   _id: string;
   classID: { _id: string; className?: string } | string;
   sectionId: { _id: string; sectionName?: string } | string;
-  rollNo?: string;
+  rollNo?: string | number | null; // 0 / null = no roll number
   studentId: {
     _id: string; // StudentAdmission _id — this is the `studentId` the fee APIs expect
     admno: string;
     pystatus?: "pending" | "done" | "reject";
-    regno: { _id: string; sname?: string; regno?: string } | string;
+    regno:
+      | { _id: string; sname?: string; fname?: string; mname?: string; Image?: string; regno?: string }
+      | string;
   };
 }
 
@@ -137,4 +139,16 @@ export interface CancelReceiptRequest {
 export interface CancelReceiptResponse {
   success: boolean;
   message: string;
+}
+
+/** GET /api/fees/students/payment-detail-monthly?schId=&session=&studentId= */
+export interface PaymentDetailMonthlyData {
+  /** Installments that are fully paid. */
+  pinst: { _id: string; instno: number }[];
+  /** Installments that still have a balance (amt is the NET total, not the due). */
+  dinst: { _id: string; instno: number; feedet: { _id: string; feetype: string; amt: number }[]; amt: number }[];
+}
+export interface GetPaymentDetailMonthlyResponse {
+  success: boolean;
+  data: PaymentDetailMonthlyData;
 }

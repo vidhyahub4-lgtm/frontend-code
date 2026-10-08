@@ -29,6 +29,8 @@ export function EnrolledStudentPicker({ schId, sessionId, onSelect }: Props) {
   const [classFilter, setClassFilter] = useState("");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState("");
+  const [admNo, setAdmNo] = useState("");
+  const [admError, setAdmError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,6 +71,22 @@ export function EnrolledStudentPicker({ schId, sessionId, onSelect }: Props) {
     });
   }, [rows, classFilter, search]);
 
+  function handleGetDetails() {
+    const q = admNo.trim().toLowerCase();
+    if (!q) return;
+    const row = rows.find((r) => String(r.studentId.admno ?? "").toLowerCase() === q);
+    if (!row) {
+      setAdmError("No enrolled student found with this admission no.");
+      return;
+    }
+    setAdmError(null);
+    // Clear the filters so the student is part of the dropdown below.
+    setClassFilter("");
+    setSearch("");
+    setSelectedId(row._id);
+    onSelect(row);
+  }
+
   function clearSelection() {
     setSelectedId("");
     onSelect(null);
@@ -82,6 +100,34 @@ export function EnrolledStudentPicker({ schId, sessionId, onSelect }: Props) {
             <AlertCircle size={14} /> {error}
           </p>
         )}
+        <div className="space-y-1">
+          <label htmlFor="pick-admno" className={labelClasses}>Admission No.</label>
+          <div className="flex max-w-md gap-2">
+            <input
+              id="pick-admno"
+              value={admNo}
+              onChange={(e) => {
+                setAdmNo(e.target.value);
+                setAdmError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleGetDetails();
+              }}
+              placeholder="Ex: 2026/9"
+              className={inputClasses}
+            />
+            <button
+              type="button"
+              onClick={handleGetDetails}
+              disabled={isLoading || !admNo.trim()}
+              className="shrink-0 rounded-md bg-marigold px-3 py-2 text-sm font-medium text-ink hover:bg-marigold-dark disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Get Details
+            </button>
+          </div>
+          {admError && <p className="text-xs text-red-600">{admError}</p>}
+        </div>
+        <p className="text-xs text-ink-soft">Or find the student by class / name:</p>
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="space-y-1">
             <label htmlFor="pick-class" className={labelClasses}>Class</label>
