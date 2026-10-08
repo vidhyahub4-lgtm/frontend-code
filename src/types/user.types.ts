@@ -8,6 +8,8 @@ export interface User {
   email: string;
   phoneno: number;
   userType: UserType;
+  /** School the user belongs to (admins only); the list API may return just the id. */
+  schid?: string | { _id: string; schName?: string } | null;
   image?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -21,6 +23,8 @@ export interface CreateUserRequest {
   phoneno: number;
   password: string;
   userType: UserType;
+  /** Required by the backend when userType is "admin". */
+  schid?: string;
 }
 
 export interface GetUsersResponse {

@@ -1,9 +1,11 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { UserPlus, Users } from "lucide-react";
 import { SectionCard } from "../../components/common/SectionCard";
 import { EntityTable } from "../../components/common/EntityTable";
 import { useEntityCrud } from "../../hooks/useEntityCrud";
+import { superAdminService } from "../../services/superadmin.service";
 import { userService } from "../../services/user.service";
+import type { School } from "../../types/superadmin.types";
 import type { CreateUserRequest, User, UserType } from "../../types/user.types";
 
 const inputClasses =
@@ -23,6 +25,7 @@ const EMPTY_FORM = {
   phoneno: "",
   password: "",
   userType: "admin" as UserType,
+  schid: "",
 };
 
 function RoleBadge({ userType }: { userType: UserType }) {
@@ -46,6 +49,36 @@ function ManageUserPage() {
     });
 
   const [form, setForm] = useState(EMPTY_FORM);
+  const [schools, setSchools] = useState<School[]>([]);
+  const [schoolsLoading, setSchoolsLoading] = useState(true);
+  const [schoolsError, setSchoolsError] = useState<string | null>(null);
+
+  // Admins belong to a school, so the school list is needed for the form.
+  useEffect(() => {
+    let cancelled = false;
+    superAdminService
+      .getSchools()
+      .then((res) => {
+        if (!cancelled) setSchools(res.schools ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setSchoolsError("Could not load schools.");
+      })
+      .finally(() => {
+        if (!cancelled) setSchoolsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const isAdminRole = form.userType === "admin";
+  const schoolName = (user: User): string => {
+    const ref = user.schid;
+    if (!ref) return "—";
+    if (typeof ref !== "string") return ref.schName ?? "—";
+    return schools.find((s) => s._id === ref)?.schName ?? "—";
+  };
 
   function updateField<K extends keyof typeof EMPTY_FORM>(key: K, value: (typeof EMPTY_FORM)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -57,7 +90,8 @@ function ManageUserPage() {
     form.loginUserName.trim() &&
     form.email.trim() &&
     form.phoneno.trim() &&
-    form.password.trim();
+    form.password.trim() &&
+    (!isAdminRole || form.schid);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -71,6 +105,7 @@ function ManageUserPage() {
       phoneno: Number(form.phoneno),
       password: form.password,
       userType: form.userType,
+      ...(isAdminRole ? { schid: form.schid } : {}),
     });
 
     if (ok) setForm(EMPTY_FORM);
@@ -155,7 +190,11 @@ function ManageUserPage() {
               <select
                 id="userType"
                 value={form.userType}
-                onChange={(e) => updateField("userType", e.target.value as UserType)}
+                onChange={(e) => {
+                  const userType = e.target.value as UserType;
+                  updateField("userType", userType);
+                  if (userType !== "admin") updateField("schid", ""); // only admins belong to a school
+                }}
                 className={inputClasses}
               >
                 {USER_TYPES.map((type) => (
@@ -165,6 +204,26 @@ function ManageUserPage() {
                 ))}
               </select>
             </div>
+            {isAdminRole && (
+              <div className="space-y-1">
+                <label htmlFor="schid" className={labelClasses}>School</label>
+                <select
+                  id="schid"
+                  value={form.schid}
+                  onChange={(e) => updateField("schid", e.target.value)}
+                  disabled={schoolsLoading}
+                  className={inputClasses}
+                >
+                  <option value="">{schoolsLoading ? "Loading schools…" : "Select a school"}</option>
+                  {schools.map((school) => (
+                    <option key={school._id} value={school._id}>
+                      {school.schName}
+                    </option>
+                  ))}
+                </select>
+                {schoolsError && <p className="text-xs text-red-600">{schoolsError}</p>}
+              </div>
+            )}
           </div>
 
           {createError && (
@@ -204,6 +263,7 @@ function ManageUserPage() {
             { header: "Email", render: (item) => item.email },
             { header: "Phone", render: (item) => item.phoneno },
             { header: "Role", render: (item) => <RoleBadge userType={item.userType} /> },
+            { header: "School", render: (item) => schoolName(item) },
           ]}
         />
       </SectionCard>
