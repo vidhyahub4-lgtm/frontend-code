@@ -76,7 +76,7 @@ export interface GetSessionsResponse {
 
 // Must match the backend enum exactly (models/super-admin/feeheadSetup.js)
 export const FEE_HEAD_TYPES = [
-  "admisssion",
+  "admission",
   "promotion",
   "monthly",
   "Misc",
