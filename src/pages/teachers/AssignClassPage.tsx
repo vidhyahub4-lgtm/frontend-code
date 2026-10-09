@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from "react";
-import { BookOpen } from "lucide-react";
+import { useRef, useState, type FormEvent } from "react";
+import { BookOpen, Loader2 } from "lucide-react";
 import { SectionCard } from "../../components/common/SectionCard";
 import { EntityTable } from "../../components/common/EntityTable";
 import { useTeachers, useSchoolClasses, useSchoolSubjects } from "../../hooks/useTeacherData";
@@ -32,6 +32,8 @@ function AssignClassForm({ schId, sessionId }: AssignClassFormProps) {
   const [timing, setTiming] = useState("");
   const [pickedCodes, setPickedCodes] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  // Synchronous lock: `isSaving` only updates on re-render, so a fast double click/Enter could slip through.
+  const submitLock = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
@@ -64,6 +66,7 @@ function AssignClassForm({ schId, sessionId }: AssignClassFormProps) {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitLock.current) return;
     clearMessages();
 
     if (!teacherId || !classId || !sectionId) {
@@ -84,6 +87,7 @@ function AssignClassForm({ schId, sessionId }: AssignClassFormProps) {
       return;
     }
 
+    submitLock.current = true;
     setIsSaving(true);
     try {
       const res = await teacherService.assignClass(teacherId, {
@@ -124,6 +128,7 @@ function AssignClassForm({ schId, sessionId }: AssignClassFormProps) {
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not save. Please try again.");
     } finally {
+      submitLock.current = false;
       setIsSaving(false);
     }
   }
@@ -289,8 +294,14 @@ function AssignClassForm({ schId, sessionId }: AssignClassFormProps) {
             </p>
           )}
 
-          <button type="submit" disabled={isSaving} className={primaryButtonClasses}>
-            {isSaving ? "Saving…" : "Assign"}
+          <button
+            type="submit"
+            disabled={isSaving}
+            aria-busy={isSaving}
+            className={`${primaryButtonClasses} inline-flex items-center justify-center gap-1.5`}
+          >
+            {isSaving && <Loader2 size={14} className="animate-spin" />}
+            {isSaving ? "Assigning…" : "Assign"}
           </button>
         </form>
       </SectionCard>
