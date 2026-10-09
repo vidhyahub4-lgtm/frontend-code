@@ -84,6 +84,11 @@ interface CollectorProps {
 }
 
 type TileState = "paid" | "due" | "none";
+interface HeadInfo {
+  demandId: string;
+  feetype: string;
+  amt: number;
+}
 
 function MonthlyFeeCollector({ studentId, schId, sessionId, sessionName, onCollected }: CollectorProps) {
   const [loading, setLoading] = useState(true);
@@ -91,6 +96,8 @@ function MonthlyFeeCollector({ studentId, schId, sessionId, sessionName, onColle
   const [dueMonths, setDueMonths] = useState<MonthlyDueMonth[]>([]);
   const [paidNos, setPaidNos] = useState<number[]>([]);
   const [advanceBalance, setAdvanceBalance] = useState(0);
+  // Every fee head of each unpaid month (incl. zero-amount / cleared heads), keyed by month no.
+  const [allHeads, setAllHeads] = useState<Record<number, HeadInfo[]>>({});
 
   const [selected, setSelected] = useState<Record<number, boolean>>({});
   const [amounts, setAmounts] = useState<Record<string, string>>({});
@@ -116,6 +123,14 @@ function MonthlyFeeCollector({ studentId, schId, sessionId, sessionName, onColle
         const months = [...(duesRes.data.months ?? [])].sort((a, b) => a.installmentMonthNo - b.installmentMonthNo);
         setDueMonths(months);
         setPaidNos((paidRes?.data.pinst ?? []).map((p) => p.instno));
+        setAllHeads(
+          Object.fromEntries(
+            (paidRes?.data.dinst ?? []).map((d) => [
+              d.instno,
+              d.feedet.map((f) => ({ demandId: f._id, feetype: f.feetype, amt: f.amt })),
+            ])
+          )
+        );
         setAdvanceBalance(duesRes.data.advanceBalance ?? 0);
         const initial: Record<string, string> = {};
         months.forEach((m) => m.items.forEach((i) => (initial[i.demandId] = String(i.dueAmount))));
@@ -140,8 +155,19 @@ function MonthlyFeeCollector({ studentId, schId, sessionId, sessionName, onColle
   const tileState = (no: number): TileState => (dueByNo.has(no) ? "due" : paidNos.includes(no) ? "paid" : "none");
 
   const selectedMonths = dueMonths.filter((m) => selected[m.installmentMonthNo]);
-  const rows = selectedMonths.flatMap((m) => m.items.map((item) => ({ month: m, item })));
-  const included = rows.filter((r) => !unticked[r.item.demandId]);
+  // All heads of the selected months. `item` is set only for heads that still have a due amount.
+  const rows = selectedMonths.flatMap((m) => {
+    const dueByDemand = new Map(m.items.map((i) => [i.demandId, i]));
+    const heads: HeadInfo[] = [...(allHeads[m.installmentMonthNo] ?? [])];
+    m.items.forEach((i) => {
+      if (!heads.some((h) => h.demandId === i.demandId))
+        heads.push({ demandId: i.demandId, feetype: i.feetype, amt: i.netAmount });
+    });
+    return heads.map((head) => ({ month: m, head, item: dueByDemand.get(head.demandId) }));
+  });
+  const included = rows.flatMap((r) =>
+    r.item && !unticked[r.item.demandId] ? [{ month: r.month, item: r.item }] : []
+  );
 
   const installmentTotal = included.reduce((s, r) => s + (Number(amounts[r.item.demandId]) || 0), 0);
   const extraAdvance = Number(advanceAmount) || 0;
@@ -239,7 +265,22 @@ function MonthlyFeeCollector({ studentId, schId, sessionId, sessionName, onColle
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
-                {rows.map(({ month, item }, index) => {
+                {rows.map(({ month, head, item }, index) => {
+                  if (!item) {
+                    // Head with nothing left to pay (zero-amount or already cleared): show, read-only.
+                    return (
+                      <tr key={head.demandId} className="text-ink-soft">
+                        <td className="py-2 pr-3">{index + 1}</td>
+                        <td className="py-2 pr-3">
+                          <input type="checkbox" disabled checked={false} aria-label={`${head.feetype} has no due`} />
+                        </td>
+                        <td className="py-2 pr-3">{installmentMonthName(month.installmentMonthNo)}</td>
+                        <td className="py-2 pr-3">{head.feetype}</td>
+                        <td className="py-2 pr-3">0</td>
+                        <td className="py-2 pr-3 text-xs">{head.amt > 0 ? "Paid" : "No charge"}</td>
+                      </tr>
+                    );
+                  }
                   const off = !!unticked[item.demandId];
                   return (
                     <tr key={item.demandId} className={off ? "opacity-50" : ""}>
