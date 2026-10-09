@@ -6,6 +6,7 @@ import { useSelectedSession } from "../../hooks/useSelectedSession";
 import { schoolSettingService } from "../../services/schoolSetting.service";
 import { ApiError } from "../../types/api.types";
 import { encodeClassApplyfor } from "../../lib/classApplyfor";
+import { LANGUAGE_GROUPS, RELIGION_GROUPS, type OptionGroup } from "../../lib/registrationOptions";
 import type { SchClass } from "../../types/superadmin.types";
 
 const inputClasses =
@@ -106,8 +107,6 @@ function validate(values: FormValues, sessionId: string): Errors {
     ["mname", "Mother's name"],
     ["gname", "Guardian's name"],
     ["nationality", "Nationality"],
-    ["religion", "Religion"],
-    ["mothertongue", "Mother tongue"],
     ["mob1", "Mobile 1"],
     ["whatAppno", "WhatsApp number"],
     ["classApplyfor", "Class applying for"],
@@ -124,6 +123,7 @@ function validate(values: FormValues, sessionId: string): Errors {
 
   if (!errors.mob1 && !MOBILE_REGEX.test(values.mob1)) errors.mob1 = "Enter a valid 10-digit mobile number.";
   if (values.mob2 && !MOBILE_REGEX.test(values.mob2)) errors.mob2 = "Enter a valid 10-digit mobile number.";
+  else if (values.mob2 && values.mob2 === values.mob1) errors.mob2 = "Mobile 2 is the same as Mobile 1.";
   if (!errors.whatAppno && !MOBILE_REGEX.test(values.whatAppno))
     errors.whatAppno = "Enter a valid 10-digit WhatsApp number.";
   if (values.adharId && !AADHAAR_REGEX.test(values.adharId)) errors.adharId = "Aadhaar must be 12 digits.";
@@ -131,6 +131,66 @@ function validate(values: FormValues, sessionId: string): Errors {
   if (values.lper && Number.isNaN(Number(values.lper))) errors.lper = "Enter a number.";
 
   return errors;
+}
+
+const OTHER = "__other__";
+
+/** Dropdown of known options plus "Other", which reveals a text box so any value can still be entered. */
+function SelectWithOther({
+  id,
+  value,
+  onChange,
+  groups,
+  className,
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  groups: OptionGroup[];
+  className: string;
+}) {
+  const [other, setOther] = useState(false);
+  const known = groups.some((g) => g.options.includes(value));
+  const isOther = other || (value !== "" && !known);
+  return (
+    <div className="space-y-2">
+      <select
+        id={id}
+        value={isOther ? OTHER : value}
+        onChange={(e) => {
+          if (e.target.value === OTHER) {
+            setOther(true);
+            onChange("");
+          } else {
+            setOther(false);
+            onChange(e.target.value);
+          }
+        }}
+        className={className}
+      >
+        <option value="">Select (optional)</option>
+        {groups.map((g) => (
+          <optgroup key={g.label} label={g.label}>
+            {g.options.map((o) => (
+              <option key={o} value={o}>
+                {o}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+        <option value={OTHER}>Other (type below)</option>
+      </select>
+      {isOther && (
+        <input
+          aria-label="Other value"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Type here"
+          className={className}
+        />
+      )}
+    </div>
+  );
 }
 
 function Field({
@@ -206,6 +266,10 @@ function RegistrationForm({ schId, schCode }: { schId: string; schCode: string }
   const [values, setValues] = useState<FormValues>(emptyValues);
   const [errors, setErrors] = useState<Errors>({});
   const [photo, setPhoto] = useState<Photo | null>(null);
+  // Which mobile number WhatsApp mirrors ("Same as Mobile 1/2"); null = typed separately.
+  const [waSource, setWaSource] = useState<"mob1" | "mob2" | null>(null);
+  // Bumped after a successful save so the dropdowns drop their "Other" mode.
+  const [formVersion, setFormVersion] = useState(0);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -257,8 +321,13 @@ function RegistrationForm({ schId, schCode }: { schId: string; schCode: string }
   );
 
   function setValue<K extends keyof FormValues>(key: K, value: FormValues[K]) {
-    setValues((prev) => ({ ...prev, [key]: value }));
-    setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
+    const mirrors = waSource !== null && key === waSource;
+    setValues((prev) => ({ ...prev, [key]: value, ...(mirrors ? { whatAppno: value as string } : {}) }));
+    setErrors((prev) =>
+      prev[key] || (mirrors && prev.whatAppno)
+        ? { ...prev, [key]: undefined, ...(mirrors ? { whatAppno: undefined } : {}) }
+        : prev
+    );
   }
 
   // Changing the class invalidates the previously chosen section.
@@ -343,6 +412,8 @@ function RegistrationForm({ schId, schCode }: { schId: string; schCode: string }
           : "Registration saved successfully."
       );
       setValues(emptyValues());
+      setWaSource(null);
+      setFormVersion((v) => v + 1);
       setErrors({});
       clearPhoto();
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -535,19 +606,23 @@ function RegistrationForm({ schId, schCode }: { schId: string; schCode: string }
                 className={cls("nationality")}
               />
             </Field>
-            <Field id="reg-religion" label="Religion" required error={errors.religion}>
-              <input
+            <Field id="reg-religion" label="Religion" error={errors.religion}>
+              <SelectWithOther
+                key={`religion-${formVersion}`}
                 id="reg-religion"
                 value={values.religion}
-                onChange={(e) => setValue("religion", e.target.value)}
+                onChange={(v) => setValue("religion", v)}
+                groups={RELIGION_GROUPS}
                 className={cls("religion")}
               />
             </Field>
-            <Field id="reg-mothertongue" label="Mother Tongue" required error={errors.mothertongue}>
-              <input
+            <Field id="reg-mothertongue" label="Mother Tongue" error={errors.mothertongue}>
+              <SelectWithOther
+                key={`tongue-${formVersion}`}
                 id="reg-mothertongue"
                 value={values.mothertongue}
-                onChange={(e) => setValue("mothertongue", e.target.value)}
+                onChange={(v) => setValue("mothertongue", v)}
+                groups={LANGUAGE_GROUPS}
                 className={cls("mothertongue")}
               />
             </Field>
@@ -611,8 +686,32 @@ function RegistrationForm({ schId, schCode }: { schId: string; schCode: string }
                 placeholder="10 digits"
                 value={values.whatAppno}
                 onChange={(e) => setValue("whatAppno", digitsOnly(e.target.value, 10))}
-                className={cls("whatAppno")}
+                readOnly={waSource !== null}
+                className={`${cls("whatAppno")} ${waSource !== null ? "bg-paper text-ink-soft" : ""}`}
               />
+              <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1">
+                {(["mob1", "mob2"] as const).map(
+                  (src) =>
+                    (waSource === src || MOBILE_REGEX.test(values[src])) && (
+                      <label key={src} className="flex cursor-pointer items-center gap-1.5 text-xs text-ink-soft">
+                        <input
+                          type="checkbox"
+                          checked={waSource === src}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setWaSource(src);
+                              setValues((prev) => ({ ...prev, whatAppno: prev[src] }));
+                              setErrors((prev) => ({ ...prev, whatAppno: undefined }));
+                            } else {
+                              setWaSource(null);
+                            }
+                          }}
+                        />
+                        Same as Mobile {src === "mob1" ? 1 : 2}
+                      </label>
+                    )
+                )}
+              </div>
             </Field>
             <Field id="reg-email" label="Email" error={errors.email}>
               <input
