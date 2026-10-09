@@ -152,3 +152,28 @@ export interface GetPaymentDetailMonthlyResponse {
   success: boolean;
   data: PaymentDetailMonthlyData;
 }
+
+// ---- Fee Setting: Generate Fee Demand ----
+
+/** POST /api/fees/demands/monthly. `session` is the session `_id`; omit `classID` for every configured class. */
+export interface GenerateMonthlyDemandsRequest {
+  schId: string;
+  session: string;
+  classID?: string;
+  installmentMonthNo: number;
+}
+export interface GenerateMonthlyDemandsData {
+  /** Active enrolled students found in the selected class(es). */
+  students: number;
+  /** New demand rows created (existing ones are left untouched, so re-running is safe). */
+  created: number;
+  skippedNoFeePlan: number;
+  skippedClasses: string[];
+  /** Class ids that have no instalment for the chosen month. */
+  notConfiguredForThisMonth: string[];
+}
+export interface GenerateMonthlyDemandsResponse {
+  success: boolean;
+  message: string;
+  data: GenerateMonthlyDemandsData;
+}

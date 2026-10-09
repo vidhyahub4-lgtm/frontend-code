@@ -10,6 +10,8 @@ import type {
   CollectFeeResponse,
   GetAdmissionDuesResponse,
   GetEnrollmentListResponse,
+  GenerateMonthlyDemandsRequest,
+  GenerateMonthlyDemandsResponse,
 } from "../types/fee.types";
 
 export const feeService = {
@@ -21,6 +23,13 @@ export const feeService = {
       )}&schId=${encodeURIComponent(schId)}`,
       { method: "GET" }
     );
+  },
+  // ---- Fee Setting: Generate Fee Demand ----
+  generateMonthlyDemands(payload: GenerateMonthlyDemandsRequest) {
+    return apiRequest<GenerateMonthlyDemandsResponse>("/api/fees/demands/monthly", {
+      method: "POST",
+      body: payload,
+    });
   },
   // ---- Fee Options ----
   getMonthlyDues(studentId: string, session: string, schId: string) {

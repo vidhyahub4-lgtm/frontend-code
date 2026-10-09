@@ -12,6 +12,7 @@ import FeePlanSetupPage from "./pages/schoolsetting/FeePlanSetupPage";
 import LateFinePage from "./pages/schoolsetting/LateFinePage";
 import SubjectSetupPage from "./pages/schoolsetting/SubjectSetupPage";
 import HouseClubSetupPage from "./pages/schoolsetting/HouseClubSetupPage";
+import FeeDemandPage from "./pages/schoolsetting/FeeDemandPage";
 import AddTeacherPage from "./pages/teachers/AddTeacherPage";
 import AssignClassPage from "./pages/teachers/AssignClassPage";
 import ClassTeacherPage from "./pages/teachers/ClassTeacherPage";
@@ -95,6 +96,10 @@ function App() {
             <Route
               path="/school-setting/fee-setting/fee-plan-setup"
               element={<FeePlanSetupPage />}
+            />
+            <Route
+              path="/school-setting/fee-setting/fee-demand"
+              element={<FeeDemandPage />}
             />
             <Route
               path="/school-setting/fee-setting/late-fine"
