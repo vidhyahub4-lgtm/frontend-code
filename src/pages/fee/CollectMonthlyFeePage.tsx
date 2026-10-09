@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { AlertCircle, CheckCircle2, IndianRupee, Loader2, User } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { AlertCircle, CheckCircle2, Circle, IndianRupee, Loader2, User } from "lucide-react";
 import { SchoolSessionGate } from "../../components/common/SchoolSessionGate";
 import { SectionCard } from "../../components/common/SectionCard";
 import { EnrolledStudentPicker } from "../../components/fee/EnrolledStudentPicker";
@@ -80,6 +80,8 @@ interface CollectorProps {
   schId: string;
   sessionId: string;
   sessionName: string;
+  /** Student card, rendered at the top of the left column. */
+  profile: ReactNode;
   onCollected: (message: string) => void;
 }
 
@@ -90,7 +92,7 @@ interface HeadInfo {
   amt: number;
 }
 
-function MonthlyFeeCollector({ studentId, schId, sessionId, sessionName, onCollected }: CollectorProps) {
+function MonthlyFeeCollector({ studentId, schId, sessionId, sessionName, profile, onCollected }: CollectorProps) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [dueMonths, setDueMonths] = useState<MonthlyDueMonth[]>([]);
@@ -174,6 +176,11 @@ function MonthlyFeeCollector({ studentId, schId, sessionId, sessionName, onColle
   const paidAmount = installmentTotal + extraAdvance;
   const totalDue = dueMonths.reduce((s, m) => s + m.monthDue, 0);
   const currentDues = Math.max(totalDue - installmentTotal, 0);
+  const selectedDue = selectedMonths.reduce((s, m) => s + m.monthDue, 0);
+  const firstSelectedNo = selectedMonths.length ? Math.min(...selectedMonths.map((m) => m.installmentMonthNo)) : Infinity;
+  const previousDues = dueMonths
+    .filter((m) => !selected[m.installmentMonthNo] && m.installmentMonthNo < firstSelectedNo)
+    .reduce((s, m) => s + m.monthDue, 0);
 
   async function handleCollect() {
     setCollectError(null);
@@ -213,25 +220,27 @@ function MonthlyFeeCollector({ studentId, schId, sessionId, sessionName, onColle
     }
   }
 
-  if (loading) {
+  if (loading || loadError) {
     return (
-      <p className="flex items-center gap-1.5 text-sm text-ink-soft">
-        <Loader2 size={14} className="animate-spin" /> Loading fee details…
-      </p>
-    );
-  }
-  if (loadError) {
-    return (
-      <p className="flex items-center gap-1.5 text-sm text-red-600">
-        <AlertCircle size={14} /> {loadError}
-      </p>
+      <div className="space-y-6">
+        {profile}
+        {loading ? (
+          <p className="flex items-center gap-1.5 text-sm text-ink-soft">
+            <Loader2 size={14} className="animate-spin" /> Loading fee details…
+          </p>
+        ) : (
+          <p className="flex items-center gap-1.5 text-sm text-red-600">
+            <AlertCircle size={14} /> {loadError}
+          </p>
+        )}
+      </div>
     );
   }
 
   const tileClasses: Record<TileState | "selected", string> = {
     paid: "border-emerald-300 bg-emerald-50 text-emerald-700",
-    due: "border-line bg-white text-ink hover:border-marigold",
-    selected: "border-marigold bg-marigold/15 text-ink",
+    due: "border-amber-300 bg-amber-50 text-ink hover:border-marigold",
+    selected: "border-marigold bg-marigold/20 text-ink ring-2 ring-marigold/40",
     none: "border-line bg-paper text-ink-soft opacity-60",
   };
   const tileCaption: Record<TileState | "selected", string> = {
@@ -240,89 +249,107 @@ function MonthlyFeeCollector({ studentId, schId, sessionId, sessionName, onColle
     selected: "Selected",
     none: "—",
   };
+  const allSelected = selectedMonths.length === dueMonths.length;
+  const statClasses = "rounded-md border border-line bg-paper px-3 py-2";
 
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      {/* ---------------- left: heads of the chosen months ---------------- */}
-      <SectionCard title="Installment / Monthly Fee Heads" icon={IndianRupee}>
-        {dueMonths.length === 0 ? (
-          <p className="flex items-center gap-1.5 text-sm text-emerald-700">
-            <CheckCircle2 size={14} /> No monthly fee is due for this student.
-          </p>
-        ) : rows.length === 0 ? (
-          <p className="text-sm text-ink-soft">Select a month from the grid to see its fee heads.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-soft">
-                  <th className={thClasses}>Sl</th>
-                  <th className={thClasses}>Pay</th>
-                  <th className={thClasses}>Installment</th>
-                  <th className={thClasses}>Head Name</th>
-                  <th className={thClasses}>Due</th>
-                  <th className={thClasses}>Amount</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {rows.map(({ month, head, item }, index) => {
-                  if (!item) {
-                    // Head with nothing left to pay (zero-amount or already cleared): show, read-only.
-                    return (
-                      <tr key={head.demandId} className="text-ink-soft">
-                        <td className="py-2 pr-3">{index + 1}</td>
-                        <td className="py-2 pr-3">
-                          <input type="checkbox" disabled checked={false} aria-label={`${head.feetype} has no due`} />
-                        </td>
-                        <td className="py-2 pr-3">{installmentMonthName(month.installmentMonthNo)}</td>
-                        <td className="py-2 pr-3">{head.feetype}</td>
-                        <td className="py-2 pr-3">0</td>
-                        <td className="py-2 pr-3 text-xs">{head.amt > 0 ? "Paid" : "No charge"}</td>
-                      </tr>
-                    );
-                  }
-                  const off = !!unticked[item.demandId];
-                  return (
-                    <tr key={item.demandId} className={off ? "opacity-50" : ""}>
-                      <td className="py-2 pr-3">{index + 1}</td>
-                      <td className="py-2 pr-3">
-                        <input
-                          type="checkbox"
-                          aria-label={`Pay ${item.feetype} for ${installmentMonthName(month.installmentMonthNo)}`}
-                          checked={!off}
-                          onChange={(e) => setUnticked((prev) => ({ ...prev, [item.demandId]: !e.target.checked }))}
-                        />
-                      </td>
-                      <td className="py-2 pr-3">{installmentMonthName(month.installmentMonthNo)}</td>
-                      <td className="py-2 pr-3">{item.feetype}</td>
-                      <td className="py-2 pr-3">{item.dueAmount}</td>
-                      <td className="py-2 pr-3">
-                        <input
-                          type="number"
-                          min={0}
-                          max={item.dueAmount}
-                          disabled={off}
-                          value={amounts[item.demandId] ?? ""}
-                          onChange={(e) => setAmounts((prev) => ({ ...prev, [item.demandId]: e.target.value }))}
-                          className={`${inputClasses} w-24`}
-                        />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot>
-                <tr className="border-t border-line font-medium text-ink">
-                  <td colSpan={5} className="py-2 pr-3 text-right">Total</td>
-                  <td className="py-2 pr-3">{money(installmentTotal)}</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        )}
-      </SectionCard>
+    <div className="grid items-start gap-6 lg:grid-cols-2">
+      {/* ---------------- left: student + fee heads of the chosen months ---------------- */}
+      <div className="space-y-6">
+        {profile}
+        <SectionCard title="Installment / Monthly Fee Heads" icon={IndianRupee}>
+          {dueMonths.length === 0 ? (
+            <p className="flex items-center gap-1.5 text-sm text-emerald-700">
+              <CheckCircle2 size={14} /> No monthly fee is due for this student.
+            </p>
+          ) : selectedMonths.length === 0 ? (
+            <p className="text-sm text-ink-soft">Select a month from the grid to see its fee heads.</p>
+          ) : (
+            <div className="space-y-4">
+              {selectedMonths.map((m) => {
+                const monthRows = rows.filter((r) => r.month === m);
+                const monthPay = monthRows.reduce(
+                  (sum, r) => sum + (r.item && !unticked[r.item.demandId] ? Number(amounts[r.item.demandId]) || 0 : 0),
+                  0
+                );
+                return (
+                  <div key={m.installmentMonthNo} className="overflow-hidden rounded-md border border-line">
+                    <div className="flex items-center justify-between bg-paper px-3 py-2 text-sm">
+                      <span className="font-semibold text-ink">{installmentMonthName(m.installmentMonthNo)}</span>
+                      <span className="text-xs text-ink-soft">Due {money(m.monthDue)}</span>
+                    </div>
+                    <div className="overflow-x-auto px-3">
+                      <table className="w-full text-left text-sm">
+                        <thead>
+                          <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-soft">
+                            <th className={thClasses}>Pay</th>
+                            <th className={thClasses}>Head Name</th>
+                            <th className={`${thClasses} text-right`}>Due</th>
+                            <th className={`${thClasses} text-right`}>Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-line">
+                          {monthRows.map(({ head, item }) => {
+                            if (!item) {
+                              // Nothing left to pay (zero-amount or already cleared): shown, read-only.
+                              return (
+                                <tr key={head.demandId} className="text-ink-soft">
+                                  <td className="py-2 pr-3">
+                                    <input type="checkbox" disabled checked={false} aria-label={`${head.feetype} has no due`} />
+                                  </td>
+                                  <td className="py-2 pr-3">{head.feetype}</td>
+                                  <td className="py-2 pr-3 text-right">0</td>
+                                  <td className="py-2 text-right text-xs">{head.amt > 0 ? "Paid" : "No charge"}</td>
+                                </tr>
+                              );
+                            }
+                            const off = !!unticked[item.demandId];
+                            return (
+                              <tr key={item.demandId} className={off ? "opacity-50" : ""}>
+                                <td className="py-2 pr-3">
+                                  <input
+                                    type="checkbox"
+                                    aria-label={`Pay ${item.feetype} for ${installmentMonthName(m.installmentMonthNo)}`}
+                                    checked={!off}
+                                    onChange={(e) => setUnticked((prev) => ({ ...prev, [item.demandId]: !e.target.checked }))}
+                                  />
+                                </td>
+                                <td className="py-2 pr-3">{item.feetype}</td>
+                                <td className="py-2 pr-3 text-right">{item.dueAmount}</td>
+                                <td className="py-2 text-right">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={item.dueAmount}
+                                    disabled={off}
+                                    value={amounts[item.demandId] ?? ""}
+                                    onChange={(e) => setAmounts((prev) => ({ ...prev, [item.demandId]: e.target.value }))}
+                                    className={`${inputClasses} w-24 text-right`}
+                                  />
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="flex justify-between border-t border-line px-3 py-2 text-xs text-ink-soft">
+                      <span>Paying for {installmentMonthName(m.installmentMonthNo)}</span>
+                      <span className="font-medium text-ink">{money(monthPay)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="flex justify-between rounded-md bg-chalkboard/5 px-3 py-2 text-sm font-semibold text-ink">
+                <span>Installment Total</span>
+                <span>{money(installmentTotal)}</span>
+              </div>
+            </div>
+          )}
+        </SectionCard>
+      </div>
 
-      {/* ---------------- right: months, amount, payment ---------------- */}
+      {/* ---------------- right: months, summary, payment ---------------- */}
       <div className="space-y-6">
         <SectionCard title="Installment / Months Selection" icon={IndianRupee}>
           <div className="space-y-3">
@@ -332,50 +359,64 @@ function MonthlyFeeCollector({ studentId, schId, sessionId, sessionName, onColle
                 const isSelected = state === "due" && !!selected[no];
                 const visual = isSelected ? "selected" : state;
                 return (
-                  <label
+                  <button
                     key={no}
-                    className={`flex flex-col items-center gap-1 rounded-md border px-2 py-2 text-center text-xs ${
+                    type="button"
+                    disabled={state !== "due"}
+                    aria-pressed={isSelected}
+                    onClick={() => setSelected((prev) => ({ ...prev, [no]: !prev[no] }))}
+                    className={`flex flex-col items-center gap-1 rounded-md border px-2 py-2 text-center text-xs transition ${
                       tileClasses[visual]
                     } ${state === "due" ? "cursor-pointer" : "cursor-not-allowed"}`}
                   >
-                    {state === "paid" ? (
-                      <CheckCircle2 size={16} />
-                    ) : (
-                      <input
-                        type="checkbox"
-                        disabled={state !== "due"}
-                        checked={isSelected}
-                        onChange={(e) => setSelected((prev) => ({ ...prev, [no]: e.target.checked }))}
-                      />
-                    )}
+                    {state === "paid" || isSelected ? <CheckCircle2 size={16} /> : <Circle size={16} className="opacity-50" />}
                     <span className="font-medium">{installmentMonthName(no)}</span>
-                    <span className="text-[10px] uppercase tracking-wide opacity-80">
-                      {tileCaption[visual]} · {no}
-                    </span>
-                  </label>
+                    <span className="text-[10px] uppercase tracking-wide opacity-80">{tileCaption[visual]}</span>
+                  </button>
                 );
               })}
             </div>
-            {dueMonths.length > 1 && (
-              <button
-                type="button"
-                onClick={() =>
-                  setSelected(
-                    selectedMonths.length === dueMonths.length
-                      ? {}
-                      : Object.fromEntries(dueMonths.map((m) => [m.installmentMonthNo, true]))
-                  )
-                }
-                className="text-sm font-medium text-marigold-dark hover:underline"
-              >
-                {selectedMonths.length === dueMonths.length ? "Clear selection" : "Select all due months"}
-              </button>
-            )}
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink-soft">
+              <span className="flex flex-wrap gap-x-3 gap-y-1">
+                <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-emerald-400" /> Paid</span>
+                <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-amber-400" /> Due</span>
+                <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-marigold" /> Selected</span>
+              </span>
+              {dueMonths.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelected(allSelected ? {} : Object.fromEntries(dueMonths.map((m) => [m.installmentMonthNo, true])))
+                  }
+                  className="text-sm font-medium text-marigold-dark hover:underline"
+                >
+                  {allSelected ? "Clear selection" : "Select all due months"}
+                </button>
+              )}
+            </div>
           </div>
         </SectionCard>
 
         <SectionCard title="Payable Amount" icon={IndianRupee}>
           <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className={statClasses}>
+                <p className="text-xs text-ink-soft">Previous Dues</p>
+                <p className="font-semibold text-ink">{money(previousDues)}</p>
+              </div>
+              <div className={statClasses}>
+                <p className="text-xs text-ink-soft">Advance Balance</p>
+                <p className="font-semibold text-ink">{money(advanceBalance)}</p>
+              </div>
+              <div className={statClasses}>
+                <p className="text-xs text-ink-soft">Selected Due</p>
+                <p className="font-semibold text-ink">{money(selectedDue)}</p>
+              </div>
+              <div className={statClasses}>
+                <p className="text-xs text-ink-soft">Dues After Payment</p>
+                <p className="font-semibold text-ink">{money(currentDues)}</p>
+              </div>
+            </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1">
                 <p className={labelClasses}>Installment Total</p>
@@ -394,25 +435,12 @@ function MonthlyFeeCollector({ studentId, schId, sessionId, sessionName, onColle
                   className={inputClasses}
                 />
               </div>
-              <div className="space-y-1">
-                <p className={labelClasses}>Paid Amount</p>
-                <p className="rounded-md border border-marigold bg-marigold/10 px-3 py-2 text-sm font-semibold text-ink">
-                  {money(paidAmount)}
-                </p>
-              </div>
-              <div className="space-y-1">
-                <p className={labelClasses}>Current Dues (after this payment)</p>
-                <p className="rounded-md border border-line bg-paper px-3 py-2 text-sm font-medium text-ink">
-                  {money(currentDues)}
-                </p>
-              </div>
             </div>
-            {advanceBalance > 0 && (
-              <p className="text-xs text-ink-soft">Available advance balance: {money(advanceBalance)}</p>
-            )}
-            <p className="rounded-md bg-chalkboard/5 px-3 py-2 text-sm font-medium text-ink">
-              {amountInWords(paidAmount)}
-            </p>
+            <div className="rounded-md border border-marigold bg-marigold/10 px-4 py-3">
+              <p className="text-xs uppercase tracking-wide text-ink-soft">Pay Amount</p>
+              <p className="text-2xl font-semibold text-ink">{money(paidAmount)}</p>
+              <p className="mt-1 text-xs font-medium text-ink-soft">{amountInWords(paidAmount)}</p>
+            </div>
           </div>
         </SectionCard>
 
@@ -442,23 +470,21 @@ function MonthlyFeeCollector({ studentId, schId, sessionId, sessionName, onColle
                 <input id="mf-date" type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} className={inputClasses} />
               </div>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
-              <p className="text-xs text-ink-soft">Collecting fee for session {sessionName}</p>
-              <button
-                type="button"
-                onClick={handleCollect}
-                disabled={collecting || dueMonths.length === 0}
-                className="flex items-center gap-1.5 rounded-md bg-marigold px-4 py-2 text-sm font-medium text-ink hover:bg-marigold-dark disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {collecting ? <Loader2 size={15} className="animate-spin" /> : <IndianRupee size={15} />}
-                Collect Fee
-              </button>
-            </div>
             {collectError && (
               <p className="flex items-center gap-1.5 text-xs text-red-600">
                 <AlertCircle size={13} /> {collectError}
               </p>
             )}
+            <button
+              type="button"
+              onClick={handleCollect}
+              disabled={collecting || dueMonths.length === 0}
+              className="flex w-full items-center justify-center gap-1.5 rounded-md bg-marigold px-4 py-3 text-sm font-semibold text-ink hover:bg-marigold-dark disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {collecting ? <Loader2 size={16} className="animate-spin" /> : <IndianRupee size={16} />}
+              Collect {money(paidAmount)}
+            </button>
+            <p className="text-center text-xs text-ink-soft">Session {sessionName}</p>
           </div>
         </SectionCard>
       </div>
@@ -499,13 +525,13 @@ function CollectMonthlyFeeContent({
       )}
       {student && (
         <>
-          <StudentProfileCard row={student} sessionName={sessionName} />
           <MonthlyFeeCollector
             key={`${student.studentId._id}:${reloadKey}`}
             studentId={student.studentId._id}
             schId={schId}
             sessionId={sessionId}
             sessionName={sessionName}
+            profile={<StudentProfileCard row={student} sessionName={sessionName} />}
             onCollected={(msg) => {
               setMessage(msg);
               setReloadKey((k) => k + 1);
