@@ -11,6 +11,7 @@ import ClassSectionSetupPage from "./pages/schoolsetting/ClassSectionSetupPage";
 import FeePlanSetupPage from "./pages/schoolsetting/FeePlanSetupPage";
 import LateFinePage from "./pages/schoolsetting/LateFinePage";
 import SubjectSetupPage from "./pages/schoolsetting/SubjectSetupPage";
+import HouseClubSetupPage from "./pages/schoolsetting/HouseClubSetupPage";
 import AddTeacherPage from "./pages/teachers/AddTeacherPage";
 import AssignClassPage from "./pages/teachers/AssignClassPage";
 import ClassTeacherPage from "./pages/teachers/ClassTeacherPage";
@@ -62,6 +63,10 @@ function App() {
             <Route
               path="/school-setting/essential-setting/subject-setup"
               element={<SubjectSetupPage />}
+            />
+            <Route
+              path="/school-setting/essential-setting/house-club-setup"
+              element={<HouseClubSetupPage />}
             />
             <Route
               path="/school-setting/teachers-setting/add-teacher"

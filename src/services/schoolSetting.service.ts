@@ -26,6 +26,11 @@ import type {
   CreateSubjectResponse,
   GetSubjectsResponse,
 } from "../types/subject.types";
+import type {
+  CreateSchHouseRequest,
+  CreateSchHouseResponse,
+  GetSchHousesResponse,
+} from "../types/house.types";
 
 export const schoolSettingService = {
   // ---- Student Management: New Registration (multipart: fields + `Image` file) ----
@@ -115,6 +120,20 @@ export const schoolSettingService = {
     return apiRequest<GetSubjectsResponse>(
       `/school-settings/getAll-subject?schId=${encodeURIComponent(schId)}&session=${encodeURIComponent(session)}`,
       { method: "POST" }
+    );
+  },
+
+  // ---- Essential Setting: House / Club Setup ----
+  createSchHouse(payload: CreateSchHouseRequest) {
+    return apiRequest<CreateSchHouseResponse>("/school-settings/create-sch-house", {
+      method: "POST",
+      body: payload,
+    });
+  },
+  getSchHouses(schId: string) {
+    return apiRequest<GetSchHousesResponse>(
+      `/school-settings/get-sch-house?schId=${encodeURIComponent(schId)}`,
+      { method: "GET" }
     );
   },
 
