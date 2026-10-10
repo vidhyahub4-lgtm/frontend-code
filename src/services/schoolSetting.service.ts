@@ -100,6 +100,8 @@ export const schoolSettingService = {
     return apiRequest<UpdateStudentResponse>(`/school-settings/update-student/${encodeURIComponent(regId)}`, {
       method: "PUT",
       body: formData,
+      bodyType: "multipart", // fields + optional `Image` file; JSON would send an empty body
+      timeoutMs: 30_000, // photo upload can be slower than a normal JSON call
     });
   },
   updateStudentHouses(payload: UpdateStudentHouseRequest) {
