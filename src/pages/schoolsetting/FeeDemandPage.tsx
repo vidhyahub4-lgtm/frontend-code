@@ -32,7 +32,7 @@ function FeeDemandContent({ schId, sessionId, sessionName }: FeeDemandContentPro
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [classId, setClassId] = useState("");
-  const [monthNo, setMonthNo] = useState<number | null>(null);
+  const [monthNos, setMonthNos] = useState<number[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<GenerateMonthlyDemandsData | null>(null);
@@ -72,20 +72,38 @@ function FeeDemandContent({ schId, sessionId, sessionName }: FeeDemandContentPro
     return [...byNo.values()].sort((a, b) => a.id - b.id);
   }, [classes, classId]);
 
-  const selectedMonth = installments.find((i) => i.id === monthNo);
+  const selectedMonths = installments.filter((i) => monthNos.includes(i.id));
   const classLabel = classId === ALL ? "all classes" : (classNameById.get(classId) ?? "");
 
   function handleClassChange(value: string) {
     setClassId(value);
-    setMonthNo(null);
+    setMonthNos([]);
+    setResult(null);
+    setError(null);
+  }
+
+  function toggleMonth(id: number) {
+    setMonthNos((prev) => (prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id]));
+    setResult(null);
+    setError(null);
+  }
+
+  function selectAllMonths() {
+    setMonthNos(installments.map((i) => i.id));
+    setResult(null);
+    setError(null);
+  }
+
+  function clearMonths() {
+    setMonthNos([]);
     setResult(null);
     setError(null);
   }
 
   async function handleGenerate() {
     if (lock.current) return;
-    if (!classId || monthNo === null) {
-      setError("Select a class and an instalment.");
+    if (!classId || monthNos.length === 0) {
+      setError("Select a class and at least one instalment.");
       return;
     }
     lock.current = true;
@@ -97,7 +115,7 @@ function FeeDemandContent({ schId, sessionId, sessionName }: FeeDemandContentPro
         schId,
         session: sessionId,
         ...(classId !== ALL ? { classID: classId } : {}),
-        installmentMonthNo: monthNo,
+        installmentMonthNos: [...monthNos].sort((a, b) => a - b),
       });
       setResult(res.data);
     } catch (err) {
@@ -147,23 +165,31 @@ function FeeDemandContent({ schId, sessionId, sessionName }: FeeDemandContentPro
 
           {classId && (
             <div className="space-y-2">
-              <p className={labelClasses}>Installment</p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className={labelClasses}>
+                  Installment{monthNos.length > 0 ? ` (${monthNos.length} selected)` : ""}
+                </p>
+                {installments.length > 0 && (
+                  <div className="flex items-center gap-3 text-xs font-medium text-marigold-dark">
+                    <button type="button" onClick={selectAllMonths} className="hover:underline">Select all</button>
+                    <button type="button" onClick={clearMonths} disabled={monthNos.length === 0} className="hover:underline disabled:opacity-40 disabled:no-underline">
+                      Clear
+                    </button>
+                  </div>
+                )}
+              </div>
               {installments.length === 0 ? (
                 <p className="text-sm text-ink-soft">No instalments configured for this class.</p>
               ) : (
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
                   {installments.map((i) => {
-                    const active = monthNo === i.id;
+                    const active = monthNos.includes(i.id);
                     return (
                       <button
                         key={i.id}
                         type="button"
                         aria-pressed={active}
-                        onClick={() => {
-                          setMonthNo(i.id);
-                          setResult(null);
-                          setError(null);
-                        }}
+                        onClick={() => toggleMonth(i.id)}
                         className={`rounded-md border px-2 py-2 text-sm transition ${
                           active
                             ? "border-marigold bg-marigold/20 font-medium text-ink ring-2 ring-marigold/40"
@@ -188,21 +214,24 @@ function FeeDemandContent({ schId, sessionId, sessionName }: FeeDemandContentPro
           <button
             type="button"
             onClick={handleGenerate}
-            disabled={isGenerating || !classId || monthNo === null}
+            disabled={isGenerating || !classId || monthNos.length === 0}
             aria-busy={isGenerating}
             className="inline-flex items-center justify-center gap-1.5 rounded-md bg-marigold px-4 py-2 text-sm font-medium text-chalkboard transition hover:bg-marigold-dark disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isGenerating && <Loader2 size={14} className="animate-spin" />}
             {isGenerating
               ? "Generating…"
-              : selectedMonth
-                ? `Generate ${selectedMonth.installment} Demand`
-                : "Generate Demand"}
+              : selectedMonths.length === 1
+                ? `Generate ${selectedMonths[0].installment} Demand`
+                : selectedMonths.length > 1
+                  ? `Generate ${selectedMonths.length} Months Demand`
+                  : "Generate Demand"}
           </button>
-          {selectedMonth && !isGenerating && !result && (
+          {selectedMonths.length > 0 && !isGenerating && !result && (
             <p className="text-xs text-ink-soft">
-              Creates {selectedMonth.installment} fee demands for every active student of {classLabel}. Demands that
-              already exist are skipped, so running it again is safe.
+              Creates {selectedMonths.map((m) => m.installment).join(", ")} fee demands for every active student of{" "}
+              {classLabel}. Demands that already exist are skipped, so running it again is safe. If any selected month
+              is not set up for a class, nothing is generated.
             </p>
           )}
 
@@ -228,6 +257,15 @@ function FeeDemandContent({ schId, sessionId, sessionName }: FeeDemandContentPro
                   <p className="font-semibold text-ink">{result.skippedNoFeePlan}</p>
                 </div>
               </div>
+              {result.months && result.months.length > 1 && (
+                <ul className="space-y-1 text-xs text-ink-soft">
+                  {result.months.map((m) => (
+                    <li key={m.monthNo}>
+                      <span className="font-medium text-ink">{m.label}</span>: {m.created} new demand{m.created === 1 ? "" : "s"}
+                    </li>
+                  ))}
+                </ul>
+              )}
               {result.skippedClasses.length > 0 && (
                 <p className="text-xs text-amber-700">
                   No monthly fee plan for:{" "}

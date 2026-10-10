@@ -160,7 +160,8 @@ export interface GenerateMonthlyDemandsRequest {
   schId: string;
   session: string;
   classID?: string;
-  installmentMonthNo: number;
+  /** Instalment month numbers to generate. If any is missing for a class in scope, the backend generates nothing. */
+  installmentMonthNos: number[];
 }
 export interface GenerateMonthlyDemandsData {
   /** Active enrolled students found in the selected class(es). */
@@ -171,6 +172,8 @@ export interface GenerateMonthlyDemandsData {
   skippedClasses: string[];
   /** Class ids that have no instalment for the chosen month. */
   notConfiguredForThisMonth: string[];
+  /** New demand rows per month (present when generating months in one go). */
+  months?: { monthNo: number; label: string; created: number }[];
 }
 export interface GenerateMonthlyDemandsResponse {
   success: boolean;
