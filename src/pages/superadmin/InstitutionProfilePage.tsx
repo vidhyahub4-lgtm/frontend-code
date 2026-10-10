@@ -5,7 +5,6 @@ import { EntityTable } from "../../components/common/EntityTable";
 import { useEntityCrud } from "../../hooks/useEntityCrud";
 import { useSchoolCode } from "../../hooks/useSchoolCode";
 import { superAdminService } from "../../services/superadmin.service";
-import { userService } from "../../services/user.service";
 import { ApiError } from "../../types/api.types";
 import type {
   Board,
@@ -15,7 +14,6 @@ import type {
   School,
   State,
 } from "../../types/superadmin.types";
-import type { User } from "../../types/user.types";
 
 const inputClasses =
   "w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-marigold/40";
@@ -31,7 +29,6 @@ const EMPTY_FORM = {
   contact1: "",
   contact2: "",
   schemail: "",
-  admin: "",
   selectBoard: "",
   instituteType: "",
 };
@@ -43,7 +40,6 @@ function useReferenceData() {
   const [cities, setCities] = useState<City[]>([]);
   const [boards, setBoards] = useState<Board[]>([]);
   const [instituteTypes, setInstituteTypes] = useState<InstituteType[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,15 +51,13 @@ function useReferenceData() {
       superAdminService.getCities(),
       superAdminService.getBoards(),
       superAdminService.getInstituteTypes(),
-      userService.getUsers(),
     ])
-      .then(([statesRes, citiesRes, boardsRes, typesRes, usersRes]) => {
+      .then(([statesRes, citiesRes, boardsRes, typesRes]) => {
         if (cancelled) return;
         setStates(statesRes.states ?? []);
         setCities(citiesRes.cities ?? []);
         setBoards(boardsRes.boards ?? []);
         setInstituteTypes(typesRes.instituteTypes ?? []);
-        setUsers(usersRes.users ?? []);
       })
       .catch((err) => {
         if (!cancelled) {
@@ -81,7 +75,7 @@ function useReferenceData() {
     };
   }, []);
 
-  return { states, cities, boards, instituteTypes, users, isLoading, error };
+  return { states, cities, boards, instituteTypes, isLoading, error };
 }
 
 function InstitutionProfilePage() {
@@ -110,19 +104,6 @@ function InstitutionProfilePage() {
     [refs.cities, form.stateId]
   );
 
-  // Only "admin" type users should be assignable as an institution admin —
-  // superAdmin accounts manage the whole platform, not a single school.
-  const adminUsers = useMemo(
-    () => refs.users.filter((u) => u.userType === "admin"),
-    [refs.users]
-  );
-
-  const adminNameById = useMemo(() => {
-    const map = new Map<string, string>();
-    refs.users.forEach((u) => map.set(u._id, `${u.firstname} ${u.lastname}`));
-    return map;
-  }, [refs.users]);
-
   const canSubmit = Boolean(
     form.schName.trim() &&
       form.schAdd.trim() &&
@@ -131,7 +112,6 @@ function InstitutionProfilePage() {
       schoolCode.code &&
       form.contact1.trim() &&
       form.schemail.trim() &&
-      form.admin &&
       form.selectBoard &&
       form.instituteType
   );
@@ -151,7 +131,6 @@ function InstitutionProfilePage() {
       contact1: form.contact1.trim(),
       contact2: form.contact2.trim() || undefined,
       schemail: form.schemail.trim(),
-      admin: form.admin,
       selectBoard: form.selectBoard,
       instituteType: form.instituteType,
     });
@@ -304,26 +283,6 @@ function InstitutionProfilePage() {
             </div>
           </div>
 
-          <div className="space-y-1">
-            <label htmlFor="admin" className={labelClasses}>Institution admin</label>
-            <select
-              id="admin"
-              value={form.admin}
-              onChange={(e) => updateField("admin", e.target.value)}
-              className={inputClasses}
-              disabled={adminUsers.length === 0}
-            >
-              <option value="">
-                {adminUsers.length === 0 ? "No admin users found" : "Select an admin user"}
-              </option>
-              {adminUsers.map((u) => (
-                <option key={u._id} value={u._id}>
-                  {u.firstname} {u.lastname} ({u.loginUserName})
-                </option>
-              ))}
-            </select>
-          </div>
-
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <label htmlFor="contact1" className={labelClasses}>Primary contact</label>
@@ -406,10 +365,6 @@ function InstitutionProfilePage() {
             },
             { header: "Board", render: (item) => item.selectBoard?.boardName ?? "—" },
             { header: "Type", render: (item) => item.instituteType },
-            {
-              header: "Admin",
-              render: (item) => adminNameById.get(item.admin) ?? "—",
-            },
           ]}
         />
       </SectionCard>

@@ -1,14 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, LoaderCircle, School as SchoolIcon, Search, Settings } from "lucide-react";
+import { LoaderCircle, Settings } from "lucide-react";
 import { useSelectedSchool } from "../../hooks/useSelectedSchool";
 import { useSelectedSession } from "../../hooks/useSelectedSession";
 import { superAdminService } from "../../services/superadmin.service";
 import { ApiError } from "../../types/api.types";
 import type { School, Session } from "../../types/superadmin.types";
 import type { SelectedSchool } from "../../lib/selectedSchool";
-
-/** Show a search box only when the list is long enough to need one. */
-const SEARCH_THRESHOLD = 6;
 
 /**
  * Settings (gear) button + dropdown that lets a superAdmin pick the school
@@ -26,7 +23,6 @@ export function WorkspaceSwitcher() {
   const [schools, setSchools] = useState<School[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
   const [sessions, setSessions] = useState<Session[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
@@ -84,7 +80,6 @@ export function WorkspaceSwitcher() {
       // Start the draft from what is currently saved
       setDraftSchool(selectedSchool);
       setDraftSessionId(selectedSession?.id ?? "");
-      setQuery("");
       loadSchools();
       loadSessions();
     }
@@ -111,15 +106,6 @@ export function WorkspaceSwitcher() {
     selectSession({ id: draftSessionId, name });
     setIsOpen(false);
   }
-
-  const normalizedQuery = query.trim().toLowerCase();
-  const visibleSchools = normalizedQuery
-    ? schools.filter(
-        (s) =>
-          s.schName.toLowerCase().includes(normalizedQuery) ||
-          s.schoolCode.toLowerCase().includes(normalizedQuery)
-      )
-    : schools;
 
   return (
     <div ref={containerRef} className="relative">
@@ -149,88 +135,60 @@ export function WorkspaceSwitcher() {
             </p>
           </div>
 
-          <p className="px-4 pt-3 text-xs font-medium uppercase tracking-wide text-ink-soft">
-            School
-          </p>
+          <div className="px-4 pb-3 pt-3">
+            <label
+              htmlFor="ws-school"
+              className="text-xs font-medium uppercase tracking-wide text-ink-soft"
+            >
+              School
+            </label>
 
-          {schools.length > SEARCH_THRESHOLD && (
-            <div className="px-3 pt-2">
-              <div className="relative">
-                <Search
-                  size={14}
-                  className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-soft"
-                />
-                <input
-                  type="text"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search by name or code"
-                  autoFocus
-                  className="w-full rounded-md border border-line bg-paper py-1.5 pl-8 pr-2 text-sm text-ink outline-none focus:border-marigold"
-                />
-              </div>
-            </div>
-          )}
-
-          <div role="listbox" aria-label="Schools" className="max-h-56 overflow-y-auto p-1.5">
             {isLoading && schools.length === 0 && (
-              <p className="flex items-center justify-center gap-2 px-3 py-6 text-sm text-ink-soft">
+              <p className="mt-2 flex items-center gap-2 text-sm text-ink-soft">
                 <LoaderCircle size={15} className="animate-spin" /> Loading schools…
               </p>
             )}
 
             {error && (
-              <div className="px-3 py-4 text-center text-sm">
-                <p className="text-red-600">{error}</p>
+              <p className="mt-2 text-sm text-red-600">
+                {error}{" "}
                 <button
                   type="button"
                   onClick={loadSchools}
-                  className="mt-2 font-medium text-marigold-dark hover:underline"
+                  className="font-medium text-marigold-dark hover:underline"
                 >
                   Try again
                 </button>
-              </div>
-            )}
-
-            {!isLoading && !error && visibleSchools.length === 0 && (
-              <p className="px-3 py-6 text-center text-sm text-ink-soft">
-                {schools.length === 0 ? "No schools created yet." : "No school matches your search."}
               </p>
             )}
 
-            {visibleSchools.map((school) => {
-              const isSelected = school._id === draftSchool?.id;
-              return (
-                <button
-                  key={school._id}
-                  type="button"
-                  role="option"
-                  aria-selected={isSelected}
-                  onClick={() => handleSelectSchool(school)}
-                  className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left transition ${
-                    isSelected ? "bg-marigold/15" : "hover:bg-chalk"
-                  }`}
-                >
-                  <span
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${
-                      isSelected ? "bg-marigold text-white" : "bg-chalk text-ink-soft"
-                    }`}
-                  >
-                    <SchoolIcon size={16} />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium text-ink">
-                      {school.schName}
-                    </span>
-                    <span className="block truncate text-xs text-ink-soft">
-                      {school.schoolCode}
-                      {school.cityId?.cityName ? ` · ${school.cityId.cityName}` : ""}
-                    </span>
-                  </span>
-                  {isSelected && <Check size={16} className="shrink-0 text-marigold-dark" />}
-                </button>
-              );
-            })}
+            {!isLoading && !error && schools.length === 0 && (
+              <p className="mt-2 text-sm text-ink-soft">No schools created yet.</p>
+            )}
+
+            <select
+              id="ws-school"
+              value={draftSchool?.id ?? ""}
+              onChange={(e) => {
+                const school = schools.find((s) => s._id === e.target.value);
+                if (school) handleSelectSchool(school);
+              }}
+              disabled={isLoading && schools.length === 0}
+              className="mt-2 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-marigold/40"
+            >
+              <option value="" disabled>
+                Select a school
+              </option>
+              {/* Keep the saved choice visible even before the list has loaded */}
+              {draftSchool && !schools.some((s) => s._id === draftSchool.id) && (
+                <option value={draftSchool.id}>{draftSchool.name}</option>
+              )}
+              {schools.map((school) => (
+                <option key={school._id} value={school._id}>
+                  {school.schName} ({school.schoolCode})
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="border-t border-line px-4 pb-4 pt-3">

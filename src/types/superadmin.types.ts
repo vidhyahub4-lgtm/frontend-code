@@ -233,8 +233,6 @@ export interface School {
   contact1: string;
   contact2?: string;
   schemail: string;
-  /** Not populated by the backend — just the user's id. */
-  admin: string;
   selectBoard: SchoolBoardRef;
   instituteType: string;
   schLogo?: string;
@@ -254,7 +252,6 @@ export interface CreateSchoolRequest {
   contact1: string;
   contact2?: string;
   schemail: string;
-  admin: string;
   selectBoard: string;
   instituteType: string;
 }
