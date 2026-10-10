@@ -25,7 +25,8 @@ function classLabel(teacher: Teacher): string {
   return [cls, sec].filter(Boolean).join(" - ");
 }
 
-const todayISO = () => new Date().toISOString().slice(0, 10);
+/** Today as yyyy-mm-dd in the user's local time (toISOString would give the UTC date). */
+const todayISO = () => new Date().toLocaleDateString("en-CA");
 
 /** `_id` of a populated reference (or the id itself). */
 function refId(ref: { _id: string } | string | null | undefined): string {
@@ -271,6 +272,7 @@ function AttendanceContent({ schId, sessionId }: { schId: string; sessionId: str
   const [smsOpen, setSmsOpen] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -292,6 +294,8 @@ function AttendanceContent({ schId, sessionId }: { schId: string; sessionId: str
     };
   }, [schId, sessionId]);
 
+  // Changes to a past date are recorded in the backend audit log (who, when, what).
+  const isPastDate = Boolean(date) && date < todayISO();
   const selectedTeacher = teachers.find((t) => t._id === teacherId);
   const { classId, sectionId } = teacherClassIds(selectedTeacher);
 
@@ -327,6 +331,7 @@ function AttendanceContent({ schId, sessionId }: { schId: string; sessionId: str
 
   async function handleDateChange(value: string) {
     setDate(value);
+    setReason("");
     setSaveError(null);
     setSaveMessage(null);
     if (students && value) setMarks(await buildMarks(students, value));
@@ -356,8 +361,9 @@ function AttendanceContent({ schId, sessionId }: { schId: string; sessionId: str
         date,
         teacherId,
         records: students.map((r) => ({ student: r._id, status: marks[r._id] ?? "present" })),
+        ...(isPastDate && reason.trim() ? { reason: reason.trim() } : {}),
       });
-      setSaveMessage(`Attendance saved for ${date}.`);
+      setSaveMessage(`Attendance saved for ${date}.${isPastDate ? " This past-date change has been logged." : ""}`);
     } catch (err) {
       setSaveError(err instanceof ApiError ? err.message : "Could not save attendance.");
     } finally {
@@ -502,6 +508,28 @@ function AttendanceContent({ schId, sessionId }: { schId: string; sessionId: str
                     <MessageSquare size={14} /> Send SMS{smsSelected.size > 0 ? ` (${smsSelected.size})` : ""}
                   </button>
                 </div>
+                {isPastDate && (
+                  <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 px-3.5 py-3 text-sm text-amber-900">
+                    <p className="flex items-center gap-1.5 font-medium">
+                      <AlertCircle size={14} /> You are editing a past date ({date}).
+                    </p>
+                    <p className="text-xs">
+                      Any change will be recorded in the attendance log with your name, the student and the time.
+                    </p>
+                    <div className="space-y-1">
+                      <label htmlFor="att-reason" className="text-xs font-medium">Reason (optional)</label>
+                      <input
+                        id="att-reason"
+                        type="text"
+                        maxLength={300}
+                        value={reason}
+                        onChange={(e) => setReason(e.target.value)}
+                        placeholder="e.g. Marked late by mistake"
+                        className={inputClasses}
+                      />
+                    </div>
+                  </div>
+                )}
                 <AttendanceSummary total={students.length} present={presentCount} />
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <span className="text-ink-soft">Select for SMS:</span>
