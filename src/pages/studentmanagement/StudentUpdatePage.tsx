@@ -16,6 +16,8 @@ const MOBILE_REGEX = /^[6-9]\d{9}$/;
 const AADHAAR_REGEX = /^\d{12}$/;
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const PHOTO_MAX_BYTES = 2 * 1024 * 1024; // backend multer limit: 2 MB
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 const inputClasses =
   "w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-marigold/40 disabled:opacity-60";
@@ -41,8 +43,19 @@ function toForm(reg: ListedStudentReg | null | undefined): FormValues {
     return v === undefined || v === null ? "" : String(v);
   };
   const values = Object.fromEntries(FIELDS.map((f) => [f, get(f)])) as FormValues;
-  values.dob = values.dob.slice(0, 10);
+  values.dob = normalizeDob(values.dob);
   return values;
+}
+
+/** The date input needs "YYYY-MM-DD". Older saves stored dob as a long date string, so parse those too. */
+function normalizeDob(raw: string): string {
+  const value = raw.trim();
+  if (!value) return "";
+  if (ISO_DATE.test(value.slice(0, 10))) return value.slice(0, 10);
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}`;
 }
 
 function ageFromDob(dob: string): string {
@@ -141,6 +154,10 @@ function StudentEditor({
       setPhotoError("Photo must be a JPG, PNG or WebP image.");
       return;
     }
+    if (file.size > PHOTO_MAX_BYTES) {
+      setPhotoError("Photo must be 2 MB or smaller.");
+      return;
+    }
     setPhoto({ file, preview: URL.createObjectURL(file) });
     setSaveMessage(null);
   }
@@ -160,6 +177,11 @@ function StudentEditor({
     const formData = new FormData();
     formData.append("schId", schId);
     changed.forEach((f) => formData.append(f, values[f].trim()));
+    // A dob saved in the old long format gets rewritten as YYYY-MM-DD along with this save.
+    const storedDob = String((reg as { dob?: unknown } | null)?.dob ?? "").trim();
+    if (storedDob && !ISO_DATE.test(storedDob) && values.dob && !changed.includes("dob")) {
+      formData.append("dob", values.dob);
+    }
     if (photo) formData.append("Image", photo.file);
     try {
       const res = await schoolSettingService.updateStudent(reg?._id ?? "", formData);
