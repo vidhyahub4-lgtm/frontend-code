@@ -21,7 +21,9 @@ export interface EnrolledStudentRow {
   _id: string;
   /** 0 and null both mean "no roll number assigned". */
   rollNo?: string | number | null;
-  studentId: { _id: string; regno: ListedStudentReg | null } | null;
+  /** House name allotted for this session ("" / missing = not allotted). */
+  house?: string | null;
+  studentId: { _id: string; admno?: string; regno: ListedStudentReg | null } | null;
 }
 export interface GetEnrolledStudentsResponse {
   success: boolean;
@@ -51,4 +53,19 @@ export interface UpdateRollNoResponse {
   success: boolean;
   message: string;
   data: { matchedCount: number; modifiedCount: number };
+}
+
+// ---- PUT /school-settings/class-students/update-house ----
+export interface UpdateStudentHouseRequest {
+  schId: string;
+  students: {
+    enrollmentId: string;
+    /** null clears the allotment. Must be one of the school's houses. */
+    house: string | null;
+  }[];
+}
+export interface UpdateStudentHouseResponse {
+  success: boolean;
+  message: string;
+  data: { updated: number };
 }

@@ -4,38 +4,13 @@ import { useSelectedSchool } from "../../hooks/useSelectedSchool";
 import { SectionCard } from "../../components/common/SectionCard";
 import { schoolSettingService } from "../../services/schoolSetting.service";
 import { ApiError } from "../../types/api.types";
+import { houseColor } from "../../lib/houses";
 
 const inputClasses =
   "w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-marigold/40";
 const labelClasses = "text-sm font-medium text-ink-soft";
 const secondaryButtonClasses =
   "flex items-center justify-center gap-1.5 rounded-md border border-line bg-white px-3 py-2 text-sm font-medium text-ink transition hover:bg-chalk disabled:cursor-not-allowed disabled:opacity-60";
-
-// A house usually carries a colour in its name ("Red House", "Ashoka Blue"); use it for the card accent.
-const NAMED_COLORS: [string, string][] = [
-  ["red", "#dc2626"],
-  ["maroon", "#9f1239"],
-  ["blue", "#2563eb"],
-  ["sky", "#0ea5e9"],
-  ["green", "#16a34a"],
-  ["yellow", "#eab308"],
-  ["gold", "#ca8a04"],
-  ["orange", "#ea580c"],
-  ["saffron", "#f59e0b"],
-  ["purple", "#9333ea"],
-  ["violet", "#7c3aed"],
-  ["pink", "#ec4899"],
-  ["black", "#1f2937"],
-  ["white", "#64748b"],
-  ["silver", "#64748b"],
-];
-const FALLBACK_COLORS = ["#2563eb", "#16a34a", "#ea580c", "#9333ea", "#dc2626", "#0ea5e9", "#ca8a04", "#ec4899"];
-
-function houseColor(name: string, index: number): string {
-  const lower = name.toLowerCase();
-  const hit = NAMED_COLORS.find(([word]) => lower.includes(word));
-  return hit ? hit[1] : FALLBACK_COLORS[index % FALLBACK_COLORS.length];
-}
 
 function normalize(value: string): string {
   return value.trim().replace(/\s+/g, " ");

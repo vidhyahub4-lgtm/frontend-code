@@ -3,6 +3,8 @@ import type {
   GetEnrolledStudentsResponse,
   UpdateRollNoRequest,
   UpdateRollNoResponse,
+  UpdateStudentHouseRequest,
+  UpdateStudentHouseResponse,
 } from "../types/studentList.types";
 import type { ApiAckResponse } from "../types/api.types";
 import type {
@@ -92,6 +94,12 @@ export const schoolSettingService = {
       `/school-settings/enrolled-studentsOfClass?${query}`,
       { method: "GET" }
     );
+  },
+  updateStudentHouses(payload: UpdateStudentHouseRequest) {
+    return apiRequest<UpdateStudentHouseResponse>("/school-settings/class-students/update-house", {
+      method: "PUT",
+      body: payload,
+    });
   },
   updateStudentRollNumbers(payload: UpdateRollNoRequest) {
     return apiRequest<UpdateRollNoResponse>(

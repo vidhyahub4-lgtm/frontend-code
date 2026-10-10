@@ -25,6 +25,7 @@ import ViewRegisteredStudentPage from "./pages/studentmanagement/ViewRegisteredS
 import NewAdmissionPage from "./pages/studentmanagement/NewAdmissionPage";
 import AdmittedStudentsPage from "./pages/studentmanagement/AdmittedStudentsPage";
 import EnrolledStudentsPage from "./pages/studentmanagement/EnrolledStudentsPage";
+import StudentHouseUpdatePage from "./pages/studentmanagement/StudentHouseUpdatePage";
 import AttendancePage from "./pages/teachers/AttendancePage";
 import CollectMonthlyFeePage from "./pages/fee/CollectMonthlyFeePage";
 import StudentPaymentDetailsPage from "./pages/fee/StudentPaymentDetailsPage";
@@ -145,6 +146,10 @@ function App() {
             <Route
               path="/student-management/admission/enrolled-students"
               element={<EnrolledStudentsPage />}
+            />
+            <Route
+              path="/student-management/manage-update/student-house-update"
+              element={<StudentHouseUpdatePage />}
             />
             {/* Sidebar links whose pages aren't built yet land here */}
             <Route path="*" element={<ComingSoonPage />} />
