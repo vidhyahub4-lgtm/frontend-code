@@ -14,6 +14,19 @@ export interface ListedStudentReg {
   gender?: string;
   /** File name only; served from <apiBaseUrl>/uploads/studentImage/<Image> */
   Image?: string;
+  // Extra registration details (needed by the Student Update page)
+  regno?: string;
+  gname?: string;
+  nationality?: string;
+  religion?: string;
+  mothertongue?: string;
+  secLang?: string;
+  adharId?: string;
+  penno?: string;
+  lclass?: string;
+  lsch?: string;
+  lper?: string | number;
+  lboard?: string;
 }
 
 // ---- GET /school-settings/enrolled-studentsOfClass ----
@@ -68,4 +81,11 @@ export interface UpdateStudentHouseResponse {
   success: boolean;
   message: string;
   data: { updated: number };
+}
+
+// ---- PUT /school-settings/update-student/:regId (multipart: schId, changed fields, optional Image) ----
+export interface UpdateStudentResponse {
+  success: boolean;
+  message: string;
+  data: ListedStudentReg;
 }
