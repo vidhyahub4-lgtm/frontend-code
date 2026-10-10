@@ -1,5 +1,6 @@
 import {
   Banknote,
+  CalendarDays,
   Circle,
   Clock,
   CreditCard,
@@ -36,6 +37,7 @@ import {
 
 /** Maps the `icon` string sent by the API to a Lucide icon component. */
 const ICON_BY_KEY: Record<string, LucideIcon> = {
+  calendar: CalendarDays,
   users: Users,
   user: User,
   lock: Lock,
@@ -74,6 +76,7 @@ const ICON_BY_KEY: Record<string, LucideIcon> = {
 const ICON_BY_TEXT: Record<string, LucideIcon> = {
   "Super Admin": ShieldCheck,
   Dashboard: LayoutDashboard,
+  "School Calendar": CalendarDays,
   "School Setting": Settings,
   "Student Management": Users,
 };

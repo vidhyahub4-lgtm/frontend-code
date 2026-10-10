@@ -25,6 +25,7 @@ import ViewRegisteredStudentPage from "./pages/studentmanagement/ViewRegisteredS
 import NewAdmissionPage from "./pages/studentmanagement/NewAdmissionPage";
 import AdmittedStudentsPage from "./pages/studentmanagement/AdmittedStudentsPage";
 import EnrolledStudentsPage from "./pages/studentmanagement/EnrolledStudentsPage";
+import SchoolCalendarPage from "./pages/SchoolCalendarPage";
 import StudentUpdatePage from "./pages/studentmanagement/StudentUpdatePage";
 import StudentHouseUpdatePage from "./pages/studentmanagement/StudentHouseUpdatePage";
 import AttendancePage from "./pages/teachers/AttendancePage";
@@ -51,6 +52,7 @@ function App() {
             }
           >
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/school-calendar" element={<SchoolCalendarPage />} />
             <Route
               path="/superadmin/board-institution-type"
               element={<BoardInstitutionTypePage />}
