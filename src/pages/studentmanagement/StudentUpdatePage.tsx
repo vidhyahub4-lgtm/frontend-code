@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useLocation } from "react-router-dom";
 import { AlertCircle, ArrowLeft, CheckCircle2, Loader2, Pencil, School, Search, UserCog } from "lucide-react";
 import { SectionCard } from "../../components/common/SectionCard";
 import { EntityTable } from "../../components/common/EntityTable";
@@ -376,8 +377,10 @@ function StudentUpdateContent({ schId, sessionId }: { schId: string; sessionId: 
   const [schClasses, setSchClasses] = useState<SchClass[]>([]);
   const [classesLoading, setClassesLoading] = useState(true);
   const [classesError, setClassesError] = useState<string | null>(null);
-  const [classId, setClassId] = useState("");
-  const [sectionId, setSectionId] = useState("");
+  // The navbar "Student profile" popup can open this page with a class/section pre-picked.
+  const prefill = useLocation().state as { classId?: string; sectionId?: string } | null;
+  const [classId, setClassId] = useState(prefill?.classId ?? "");
+  const [sectionId, setSectionId] = useState(prefill?.sectionId ?? "");
   const [students, setStudents] = useState<EnrolledStudentRow[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

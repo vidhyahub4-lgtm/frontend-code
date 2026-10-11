@@ -4,6 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useSelectedSchool } from "../../hooks/useSelectedSchool";
 import { useSelectedSession } from "../../hooks/useSelectedSession";
 import { AdminWorkspaceBar } from "./AdminWorkspaceBar";
+import { StudentQuickView } from "./StudentQuickView";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
 interface TopbarProps {
@@ -60,6 +61,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
       )}
 
       <div className="flex items-center gap-3">
+        {user && <StudentQuickView />}
         {isSuperAdmin && <WorkspaceSwitcher />}
         {user && (
           <div className="flex items-center gap-2.5">
