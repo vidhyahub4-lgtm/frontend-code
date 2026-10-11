@@ -34,3 +34,52 @@ export interface GetAttendanceResponse {
   success: boolean;
   data: AttendanceRecord[];
 }
+
+/** One row of the past-date audit trail (GET /api/attendance/logs). */
+export interface AttendanceAuditLog {
+  _id: string;
+  /** Rows written by a single "Save" click share the same batchId. */
+  batchId: string;
+  schId: string;
+  session: string;
+  class: string;
+  section: string;
+  /** The attendance day that was edited. */
+  attendanceDate: string;
+  student: string;
+  studentName: string;
+  admno: string;
+  rollNo: number;
+  /** `null` = nothing was marked before. */
+  oldStatus: AttendanceStatus | null;
+  /** `null` = the student's record was removed. */
+  newStatus: AttendanceStatus | null;
+  changedBy: string;
+  changedByName: string;
+  changedByRole: string;
+  teacher?: string;
+  reason: string;
+  daysBack: number;
+  /** Server time of the save. */
+  changedAt: string;
+}
+
+export interface GetAttendanceLogsParams {
+  schId: string;
+  session?: string;
+  class?: string;
+  section?: string;
+  /** yyyy-mm-dd, inclusive range over the edited attendance day. */
+  from?: string;
+  to?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface GetAttendanceLogsResponse {
+  success: boolean;
+  total: number;
+  page: number;
+  limit: number;
+  data: AttendanceAuditLog[];
+}

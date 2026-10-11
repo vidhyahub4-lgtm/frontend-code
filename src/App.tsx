@@ -6,6 +6,7 @@ import BoardInstitutionTypePage from "./pages/superadmin/BoardInstitutionTypePag
 import StateCityPage from "./pages/superadmin/StateCityPage";
 import ClassSectionPage from "./pages/superadmin/ClassSectionPage";
 import ManageUserPage from "./pages/superadmin/ManageUserPage";
+import AttendanceLogPage from "./pages/superadmin/AttendanceLogPage";
 import InstitutionProfilePage from "./pages/superadmin/InstitutionProfilePage";
 import ClassSectionSetupPage from "./pages/schoolsetting/ClassSectionSetupPage";
 import FeePlanSetupPage from "./pages/schoolsetting/FeePlanSetupPage";
@@ -60,6 +61,7 @@ function App() {
             <Route path="/superadmin/state-city" element={<StateCityPage />} />
             <Route path="/superadmin/class-section" element={<ClassSectionPage />} />
             <Route path="/superadmin/manage-user" element={<ManageUserPage />} />
+            <Route path="/superadmin/attendance-log" element={<AttendanceLogPage />} />
             <Route path="/superadmin/institution-profile" element={<InstitutionProfilePage />} />
             <Route
               path="/school-setting/essential-setting/class-section-setup"

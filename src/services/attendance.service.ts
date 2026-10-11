@@ -1,5 +1,7 @@
 import { apiRequest } from "../lib/httpClient";
 import type {
+  GetAttendanceLogsParams,
+  GetAttendanceLogsResponse,
   GetAttendanceResponse,
   MarkAttendanceRequest,
   MarkAttendanceResponse,
@@ -17,5 +19,15 @@ export const attendanceService = {
       `/api/attendance?${new URLSearchParams(params).toString()}`,
       { method: "GET" }
     );
+  },
+  /** Past-date change log (SuperAdmin only). Empty filters are left out of the query. */
+  getAttendanceLogs(params: GetAttendanceLogsParams) {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== "") query.set(key, String(value));
+    });
+    return apiRequest<GetAttendanceLogsResponse>(`/api/attendance/logs?${query.toString()}`, {
+      method: "GET",
+    });
   },
 };
