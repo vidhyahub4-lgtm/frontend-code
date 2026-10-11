@@ -37,7 +37,21 @@ function FeePlanEditor({
   sessionName: string;
 }) {
   const { items: classes, isLoading: classesLoading } = useEntityCrud<SchoolClass, never>({
-    fetchList: () => superAdminService.getClasses().then((res) => res.classes ?? []),
+    // Only the classes THIS school has selected (not the global class list).
+    fetchList: () =>
+      schoolSettingService.getSchClasses(schId).then((res) => {
+        const byId = new Map<string, SchoolClass>();
+        (res.schClasses ?? []).forEach((sc) => {
+          if (!byId.has(sc.classID._id)) {
+            byId.set(sc.classID._id, {
+              _id: sc.classID._id,
+              className: sc.classID.className,
+              classInWord: sc.classID.classInWord,
+            });
+          }
+        });
+        return Array.from(byId.values());
+      }),
     create: () => Promise.resolve(),
   });
 

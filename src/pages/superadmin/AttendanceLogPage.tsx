@@ -4,7 +4,7 @@ import { SectionCard } from "../../components/common/SectionCard";
 import { EntityTable } from "../../components/common/EntityTable";
 import { SchoolSessionGate } from "../../components/common/SchoolSessionGate";
 import { attendanceService } from "../../services/attendance.service";
-import { superAdminService } from "../../services/superadmin.service";
+import { schoolSettingService } from "../../services/schoolSetting.service";
 import { ApiError } from "../../types/api.types";
 import type { AttendanceAuditLog, AttendanceStatus } from "../../types/attendance.types";
 import type { SchoolClass, Section } from "../../types/superadmin.types";
@@ -75,11 +75,31 @@ function AttendanceLogContent({ schId, sessionId }: { schId: string; sessionId: 
   // Class / section lists are only used for the filters and to turn ids into names.
   useEffect(() => {
     let cancelled = false;
-    Promise.all([superAdminService.getClasses(), superAdminService.getSections()])
-      .then(([c, s]) => {
+    // Only this school's classes/sections (not the global lists).
+    schoolSettingService
+      .getSchClasses(schId)
+      .then((res) => {
         if (cancelled) return;
-        setClasses(c.classes ?? []);
-        setSections(s.sections ?? []);
+        const rows = res.schClasses ?? [];
+        const classMap = new Map<string, SchoolClass>();
+        const sectionMap = new Map<string, Section>();
+        rows.forEach((sc) => {
+          classMap.set(sc.classID._id, {
+            _id: sc.classID._id,
+            className: sc.classID.className,
+            classInWord: sc.classID.classInWord,
+          });
+          sc.sectionID.forEach((sec) =>
+            sectionMap.set(sec._id, {
+              _id: sec._id,
+              sectionName: sec.sectionName,
+              Maxlimit: sec.Maxlimit,
+              classId: { _id: sc.classID._id, className: sc.classID.className },
+            })
+          );
+        });
+        setClasses(Array.from(classMap.values()));
+        setSections(Array.from(sectionMap.values()));
       })
       .catch(() => {
         /* names fall back to "—"; the log itself still loads */
@@ -87,7 +107,7 @@ function AttendanceLogContent({ schId, sessionId }: { schId: string; sessionId: 
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [schId]);
 
   useEffect(() => {
     let cancelled = false;
