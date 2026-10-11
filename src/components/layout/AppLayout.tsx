@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
+import { ErrorBoundary } from "../common/ErrorBoundary";
 
 export function AppLayout() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -22,7 +23,10 @@ export function AppLayout() {
       <div className="flex min-h-screen flex-1 flex-col">
         <Topbar onMenuClick={() => setIsMobileSidebarOpen(true)} />
         <main className="flex-1 px-4 py-6 lg:px-8 lg:py-8">
-          <Outlet />
+          {/* key resets the boundary on navigation */}
+          <ErrorBoundary key={pathname}>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
     </div>

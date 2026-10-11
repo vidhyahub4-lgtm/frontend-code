@@ -81,6 +81,19 @@ export const feeService = {
         session
       )}`,
       { method: "GET" }
-    );
+    ).then((res) => ({
+      ...res,
+      // Rows whose student/admission no longer resolves would crash every
+      // page that reads `row.studentId.admno`; drop them and turn null refs
+      // into "" (the pages already treat a string ref as "not populated").
+      data: (res.data ?? [])
+        .filter((r) => r && typeof r.studentId === "object" && r.studentId !== null)
+        .map((r) => ({
+          ...r,
+          classID: r.classID ?? "",
+          sectionId: r.sectionId ?? "",
+          studentId: { ...r.studentId, regno: r.studentId.regno ?? "" },
+        })),
+    }));
   },
 };

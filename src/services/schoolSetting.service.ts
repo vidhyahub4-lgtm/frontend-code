@@ -121,7 +121,18 @@ export const schoolSettingService = {
     return apiRequest<GetSchClassesResponse>(
       `/school-settings/get-sch-class${query}`,
       { method: "GET" }
-    );
+    ).then((res) => ({
+      ...res,
+      // Drop rows whose class ref is missing/unpopulated (deleted class etc.)
+      // and make sure sectionID is always an array, so pages never crash on
+      // `c.classID._id` / `item.sectionID.map(...)`.
+      schClasses: (res.schClasses ?? [])
+        .filter((c) => c && typeof c.classID === "object" && c.classID !== null)
+        .map((c) => ({
+          ...c,
+          sectionID: Array.isArray(c.sectionID) ? c.sectionID.filter(Boolean) : [],
+        })),
+    }));
   },
 
   // ---- Essential Setting: Subject Setup ----
